@@ -1,0 +1,184 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
+import ProductCard from '@/components/products/ProductCard';
+import Loading from '@/components/common/Loading';
+import api, { endpoints } from '@/lib/api';
+import Link from 'next/link';
+
+export default function HomePage() {
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchFeaturedProducts = async () => {
+      try {
+        const response = await api.get(endpoints.products.featured);
+        setFeaturedProducts(response.data.data);
+      } catch (error) {
+        console.error('Failed to fetch featured products:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFeaturedProducts();
+  }, []);
+
+  return (
+    <>
+      <Header />
+      
+      <main>
+        {/* Hero Section */}
+        <section className="hero py-5">
+          <div className="container">
+            <div className="row align-items-center">
+              <div className="col-lg-6 text-center text-lg-start">
+                <h1 className="display-3 fw-bold mb-4">
+                  Welcome to<br />
+                  <span style={{ color: '#D4A373' }}>Kara Boutique</span>
+                </h1>
+                <p className="lead mb-4">
+                  Discover the finest collection of ethnic and contemporary fashion. 
+                  Handpicked designs that celebrate elegance and tradition.
+                </p>
+                <Link href="/products" className="btn btn-primary btn-lg me-3">
+                  Shop Now
+                </Link>
+                <Link href="/products/category/new-arrivals" className="btn btn-outline-dark btn-lg">
+                  New Arrivals
+                </Link>
+              </div>
+              <div className="col-lg-6 d-none d-lg-block">
+                <div className="text-center">
+                  {/* You can add a hero image here */}
+                  <div className="bg-white rounded p-5" style={{ minHeight: '400px' }}>
+                    <h3 className="text-muted">Hero Image</h3>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Features */}
+        <section className="py-5 bg-light">
+          <div className="container">
+            <div className="row text-center">
+              <div className="col-md-3 mb-4">
+                <div className="p-3">
+                  <h1 className="mb-3">🚚</h1>
+                  <h5>Free Shipping</h5>
+                  <p className="text-muted small">On orders above ₹1,499</p>
+                </div>
+              </div>
+              <div className="col-md-3 mb-4">
+                <div className="p-3">
+                  <h1 className="mb-3">↩️</h1>
+                  <h5>Easy Returns</h5>
+                  <p className="text-muted small">7-day return policy</p>
+                </div>
+              </div>
+              <div className="col-md-3 mb-4">
+                <div className="p-3">
+                  <h1 className="mb-3">🔒</h1>
+                  <h5>Secure Payment</h5>
+                  <p className="text-muted small">100% secure transactions</p>
+                </div>
+              </div>
+              <div className="col-md-3 mb-4">
+                <div className="p-3">
+                  <h1 className="mb-3">⭐</h1>
+                  <h5>Premium Quality</h5>
+                  <p className="text-muted small">Handpicked products</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Featured Products */}
+        <section className="py-5">
+          <div className="container">
+            <div className="text-center mb-5">
+              <h2 className="display-5 fw-bold">Featured Products</h2>
+              <p className="lead text-muted">Handpicked favorites just for you</p>
+            </div>
+
+            {loading ? (
+              <Loading />
+            ) : (
+              <div className="row g-4">
+                {featuredProducts.slice(0, 8).map((product: any) => (
+                  <div key={product.id} className="col-6 col-md-4 col-lg-3">
+                    <ProductCard product={product} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="text-center mt-5">
+              <Link href="/products" className="btn btn-outline-primary btn-lg">
+                View All Products
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Categories */}
+        <section className="py-5 bg-light">
+          <div className="container">
+            <div className="text-center mb-5">
+              <h2 className="display-5 fw-bold">Shop by Category</h2>
+            </div>
+
+            <div className="row g-4">
+              {['Kurthi', 'Sarees', 'Suits', 'Dresses'].map((category) => (
+                <div key={category} className="col-6 col-md-3">
+                  <Link 
+                    href={`/products/category/${category.toLowerCase()}`}
+                    className="text-decoration-none"
+                  >
+                    <div className="card border-0 shadow-sm h-100">
+                      <div className="card-body text-center p-4">
+                        <h4 className="mb-3">{category}</h4>
+                        <p className="text-muted small mb-0">Explore collection</p>
+                      </div>
+                    </div>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Newsletter */}
+        <section className="py-5" style={{ backgroundColor: '#D4A373' }}>
+          <div className="container">
+            <div className="row justify-content-center">
+              <div className="col-lg-6 text-center text-white">
+                <h3 className="mb-3">Subscribe to Our Newsletter</h3>
+                <p className="mb-4">Get the latest updates on new products and exclusive offers</p>
+                <form className="d-flex gap-2">
+                  <input
+                    type="email"
+                    className="form-control"
+                    placeholder="Enter your email"
+                  />
+                  <button type="submit" className="btn btn-dark">
+                    Subscribe
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <Footer />
+    </>
+  );
+}

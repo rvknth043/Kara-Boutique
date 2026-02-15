@@ -1,0 +1,31 @@
+-- Migration: Add email verification tokens table
+-- Date: 2024-02-15
+
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token VARCHAR(255) NOT NULL UNIQUE,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id)
+);
+
+CREATE INDEX idx_email_verification_token ON email_verification_tokens(token);
+CREATE INDEX idx_email_verification_user ON email_verification_tokens(user_id);
+
+-- Add notification preferences table
+CREATE TABLE IF NOT EXISTS notification_preferences (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  email_notifications BOOLEAN DEFAULT true,
+  sms_notifications BOOLEAN DEFAULT true,
+  push_notifications BOOLEAN DEFAULT true,
+  order_updates BOOLEAN DEFAULT true,
+  promotional_emails BOOLEAN DEFAULT true,
+  stock_alerts BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id)
+);
+
+CREATE INDEX idx_notification_prefs_user ON notification_preferences(user_id);

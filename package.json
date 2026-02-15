@@ -1,0 +1,45 @@
+{
+  "name": "kara-boutique",
+  "version": "1.0.0",
+  "description": "Kara Boutique E-Commerce Platform - Complete Monorepo",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "start:frontend": "cd frontend && npm run start",
+    "start:backend": "cd backend && npm run start",
+    "db:migrate": "cd database && npm run migrate",
+    "db:seed": "cd database && npm run seed"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/kara-boutique"
+  },
+  "keywords": [
+    "ecommerce",
+    "fashion",
+    "boutique",
+    "nextjs",
+    "express",
+    "postgresql"
+  ],
+  "author": "Kara Boutique",
+  "license": "MIT"
+}
