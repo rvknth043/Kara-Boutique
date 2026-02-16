@@ -35,7 +35,9 @@ cd shared && npm install && cd ..
 
 # 4. Setup database
 createdb kara_boutique
-psql kara_boutique < database/schema.sql
+npm run db:migrate
+npm run db:seed  # default: 100 users + 1200 products
+npm run db:verify  # validates counts + FK integrity
 
 # 5. Create backend .env file
 cp backend/.env.example backend/.env
@@ -53,6 +55,22 @@ redis-server
 # 8. Start development servers
 npm run dev
 ```
+
+Quick setup shortcut:
+```bash
+npm run db:setup
+```
+
+
+#### Seed verification report artifact
+
+```bash
+SEED_REPORT_FILE=database/artifacts/seed-report.json npm run db:verify
+```
+
+This writes a machine-readable verification report that includes thresholds, counts, FK checks, and pass/fail.
+
+
 
 ---
 
@@ -72,10 +90,12 @@ CREATE DATABASE kara_boutique;
 \q
 ```
 
-#### Run Schema
+#### Run Schema + Migrations
 ```bash
-psql -U postgres -d kara_boutique -f database/schema.sql
+npm run db:migrate
 ```
+
+This command executes `database/migrate.js`, which applies `database/schema.sql` only when core tables do not exist and then applies pending SQL files from `database/migrations/`.
 
 #### Verify Tables
 ```bash
