@@ -106,12 +106,21 @@ async function seedCoupons(client) {
     { code: 'FREESHIP', type: 'free_shipping', value: 0, min_order_value: 1499, max_discount: null, usage_limit: 2500, used_count: 0 },
   ];
 
-  const strategies = [
-    ['code', 'type', 'value', 'discount_type', 'discount_value', 'min_order_value', 'max_discount', 'usage_limit', 'used_count', 'valid_from', 'valid_until', 'expiry_date', 'is_active'],
-    ['code', 'type', 'value', 'min_order_value', 'max_discount', 'usage_limit', 'used_count', 'valid_from', 'valid_until', 'is_active'],
-    ['code', 'discount_type', 'discount_value', 'min_order_value', 'max_discount', 'usage_limit', 'used_count', 'expiry_date', 'is_active'],
-    ['code', 'type', 'value', 'discount_type', 'discount_value', 'min_order_value', 'max_discount', 'usage_limit', 'used_count', 'is_active'],
-  ];
+  const insertColumns = [
+    'code',
+    'type',
+    'value',
+    'discount_type',
+    'discount_value',
+    'min_order_value',
+    'max_discount',
+    'usage_limit',
+    'used_count',
+    'valid_from',
+    'valid_until',
+    'expiry_date',
+    'is_active',
+  ].filter((column) => couponColumns.has(column));
 
   const mapCouponValue = (coupon, column) => {
     switch (column) {
@@ -144,40 +153,29 @@ async function seedCoupons(client) {
     }
   };
 
-  let lastError;
+  const rows = coupons.map((coupon) => insertColumns.map((column) => mapCouponValue(coupon, column)));
 
-  for (const strategy of strategies) {
-    const availableColumns = strategy.filter((column) => couponColumns.has(column));
+  // Attempt full insert first. If legacy constraints reject free_shipping,
+  // retry without that coupon while keeping every present column populated.
+  await client.query('SAVEPOINT coupon_seed_insert');
+  try {
+    await bulkInsert(client, 'coupons', insertColumns, rows);
+    await client.query('RELEASE SAVEPOINT coupon_seed_insert');
+  } catch (error) {
+    await client.query('ROLLBACK TO SAVEPOINT coupon_seed_insert');
+    await client.query('RELEASE SAVEPOINT coupon_seed_insert');
 
-    // A valid strategy must satisfy at least one discount pair.
-    const hasModernPair = availableColumns.includes('type') && availableColumns.includes('value');
-    const hasLegacyPair = availableColumns.includes('discount_type') && availableColumns.includes('discount_value');
-    if (!hasModernPair && !hasLegacyPair) continue;
-
-    const rows = coupons
-      .filter((coupon) => {
-        // Legacy discount_type constraints typically do not allow free_shipping.
-        if (hasLegacyPair && !hasModernPair && coupon.type === 'free_shipping') return false;
-        return true;
-      })
-      .map((coupon) => availableColumns.map((column) => mapCouponValue(coupon, column)));
-
-    try {
-      await bulkInsert(client, 'coupons', availableColumns, rows);
-      if (hasLegacyPair || availableColumns.includes('expiry_date')) {
-        console.log('ℹ️  Coupon seed compatibility applied for legacy coupon columns.');
-      }
-      return;
-    } catch (error) {
-      lastError = error;
-      const recoverable = ['42703', '23502', '23514'];
-      if (!recoverable.includes(error.code)) {
-        throw error;
-      }
+    if (!['23514', '22P02'].includes(error.code)) {
+      throw error;
     }
-  }
 
-  throw lastError || new Error('Unable to seed coupons with available schema columns.');
+    const fallbackRows = coupons
+      .filter((coupon) => coupon.type !== 'free_shipping')
+      .map((coupon) => insertColumns.map((column) => mapCouponValue(coupon, column)));
+
+    await bulkInsert(client, 'coupons', insertColumns, fallbackRows);
+    console.log('ℹ️  Coupon seed compatibility applied for legacy coupon constraints (free_shipping skipped).');
+  }
 }
 
 async function seedDatabase() {
