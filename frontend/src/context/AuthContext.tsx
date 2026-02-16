@@ -34,15 +34,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing token
-    const savedToken = Cookies.get('token');
-    const savedUser = Cookies.get('user');
+    const initializeAuth = async () => {
+      // Check for existing token
+      const savedToken = Cookies.get('token');
+      const savedUser = Cookies.get('user');
 
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+      if (!savedToken || !savedUser) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        setToken(savedToken);
+        setUser(parsedUser);
+
+        // Validate token with backend so stale cookies do not break UX
+        await api.get(endpoints.auth.me);
+      } catch (error) {
+        console.warn('Invalid auth session, clearing cookies.');
+        Cookies.remove('token');
+        Cookies.remove('user');
+        setToken(null);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -72,7 +92,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
     Cookies.remove('token');
     Cookies.remove('user');
-    window.location.href = '/';
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
   };
 
   const value = {

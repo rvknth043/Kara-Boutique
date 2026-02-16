@@ -177,28 +177,32 @@ async function seedCoupons(client) {
     }
   };
 
-  const rows = coupons.map((coupon) => insertColumns.map((column) => mapCouponValue(coupon, column)));
+  const allowedTypeValues = insertColumns.includes('type')
+    ? await getCheckConstraintValues(client, 'coupons', 'type')
+    : [];
+  const allowedLegacyTypeValues = insertColumns.includes('discount_type')
+    ? await getCheckConstraintValues(client, 'coupons', 'discount_type')
+    : [];
 
-  // Attempt full insert first. If legacy constraints reject free_shipping,
-  // retry without that coupon while keeping every present column populated.
-  await client.query('SAVEPOINT coupon_seed_insert');
-  try {
-    await bulkInsert(client, 'coupons', insertColumns, rows);
-    await client.query('RELEASE SAVEPOINT coupon_seed_insert');
-  } catch (error) {
-    await client.query('ROLLBACK TO SAVEPOINT coupon_seed_insert');
-    await client.query('RELEASE SAVEPOINT coupon_seed_insert');
+  const compatibleCoupons = coupons.filter((coupon) => {
+    const normalizedLegacyType = coupon.type === 'free_shipping' ? 'fixed' : coupon.type;
 
-    if (!['23514', '22P02'].includes(error.code)) {
-      throw error;
+    if (allowedTypeValues.length && !allowedTypeValues.includes(coupon.type)) {
+      return false;
     }
 
-    const fallbackRows = coupons
-      .filter((coupon) => coupon.type !== 'free_shipping')
-      .map((coupon) => insertColumns.map((column) => mapCouponValue(coupon, column)));
+    if (allowedLegacyTypeValues.length && !allowedLegacyTypeValues.includes(normalizedLegacyType)) {
+      return false;
+    }
 
-    await bulkInsert(client, 'coupons', insertColumns, fallbackRows);
-    console.log('ℹ️  Coupon seed compatibility applied for legacy coupon constraints (free_shipping skipped).');
+    return true;
+  });
+
+  const rows = compatibleCoupons.map((coupon) => insertColumns.map((column) => mapCouponValue(coupon, column)));
+  await bulkInsert(client, 'coupons', insertColumns, rows);
+
+  if (compatibleCoupons.length !== coupons.length) {
+    console.log('ℹ️  Coupon seed compatibility applied for legacy coupon constraints (unsupported types skipped).');
   }
 }
 

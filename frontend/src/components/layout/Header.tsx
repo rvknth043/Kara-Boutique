@@ -5,15 +5,37 @@ import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { FiShoppingCart, FiHeart, FiUser, FiSearch, FiMenu } from 'react-icons/fi';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import api, { endpoints } from '@/lib/api';
+
+interface CategoryNavItem {
+  id: string;
+  name: string;
+  slug: string;
+}
 
 export default function Header() {
   const { user, isAuthenticated, logout } = useAuth();
   const { itemCount: cartCount } = useCart();
   const { itemCount: wishlistCount } = useWishlist();
   const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState<CategoryNavItem[]>([]);
   const router = useRouter();
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await api.get(endpoints.categories.getAll);
+        const categoryData = Array.isArray(response.data.data) ? response.data.data : [];
+        setCategories(categoryData.slice(0, 6));
+      } catch (error) {
+        console.error('Failed to fetch categories for navigation:', error);
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,10 +166,15 @@ export default function Header() {
         <div className="container">
           <nav className="d-flex justify-content-center gap-4 flex-wrap">
             <Link href="/products" className="text-dark text-decoration-none">All Products</Link>
-            <Link href="/products/category/kurthi" className="text-dark text-decoration-none">Kurthi</Link>
-            <Link href="/products/category/sarees" className="text-dark text-decoration-none">Sarees</Link>
-            <Link href="/products/category/suits" className="text-dark text-decoration-none">Suits</Link>
-            <Link href="/products/category/dresses" className="text-dark text-decoration-none">Dresses</Link>
+            {categories.map((category) => (
+              <Link
+                key={category.id}
+                href={`/products/category/${category.slug}`}
+                className="text-dark text-decoration-none"
+              >
+                {category.name}
+              </Link>
+            ))}
           </nav>
         </div>
       </div>
