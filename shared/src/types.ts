@@ -15,6 +15,7 @@ export interface User {
   email: string;
   phone?: string;
   google_id?: string;
+  password_hash?: string;
   role: UserRole;
   is_active: boolean;
   created_at: Date;
@@ -178,6 +179,7 @@ export interface Order {
   payment_method: PaymentMethod;
   shipping_address_id: string;
   tracking_number?: string;
+  transaction_id?: string;
   invoice_url?: string;
   created_at: Date;
   shipped_at?: Date;
@@ -492,4 +494,3 @@ export interface RecommendationResult {
 // EXPORT ALL
 // ========================================
 
-export * from './index';
