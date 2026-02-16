@@ -64,6 +64,17 @@ async function getTableColumns(client, tableName) {
   return new Set(result.rows.map((row) => row.column_name));
 }
 
+async function getExistingTables(client, tableNames) {
+  if (!tableNames.length) return [];
+
+  const result = await client.query(
+    `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ANY($1::text[])`,
+    [tableNames]
+  );
+
+  return result.rows.map((row) => row.table_name);
+}
+
 async function bulkInsert(client, table, columns, rows, returning = '') {
   if (!rows.length) return [];
 
@@ -84,27 +95,89 @@ async function bulkInsert(client, table, columns, rows, returning = '') {
 async function seedCoupons(client) {
   const couponColumns = await getTableColumns(client, 'coupons');
 
-  if (couponColumns.has('type') && couponColumns.has('value')) {
-    await client.query(`
-      INSERT INTO coupons (code, type, value, min_order_value, max_discount, usage_limit, used_count, valid_from, valid_until, is_active)
-      VALUES
-      ('WELCOME10', 'percentage', 10, 999, 500, 1000, 0, NOW(), NOW() + INTERVAL '120 days', true),
-      ('FESTIVE20', 'percentage', 20, 1999, 1500, 500, 0, NOW(), NOW() + INTERVAL '120 days', true),
-      ('FLAT500', 'fixed', 500, 2999, NULL, 700, 0, NOW(), NOW() + INTERVAL '120 days', true),
-      ('MEGA1000', 'fixed', 1000, 6999, NULL, 200, 0, NOW(), NOW() + INTERVAL '120 days', true),
-      ('FREESHIP', 'free_shipping', 0, 1499, NULL, 2500, 0, NOW(), NOW() + INTERVAL '120 days', true)
-    `);
-    return;
+  const now = new Date();
+  const validUntil = new Date(now.getTime() + 120 * 24 * 60 * 60 * 1000);
+
+  const coupons = [
+    { code: 'WELCOME10', type: 'percentage', value: 10, min_order_value: 999, max_discount: 500, usage_limit: 1000, used_count: 0 },
+    { code: 'FESTIVE20', type: 'percentage', value: 20, min_order_value: 1999, max_discount: 1500, usage_limit: 500, used_count: 0 },
+    { code: 'FLAT500', type: 'fixed', value: 500, min_order_value: 2999, max_discount: null, usage_limit: 700, used_count: 0 },
+    { code: 'MEGA1000', type: 'fixed', value: 1000, min_order_value: 6999, max_discount: null, usage_limit: 200, used_count: 0 },
+    { code: 'FREESHIP', type: 'free_shipping', value: 0, min_order_value: 1499, max_discount: null, usage_limit: 2500, used_count: 0 },
+  ];
+
+  const strategies = [
+    ['code', 'type', 'value', 'discount_type', 'discount_value', 'min_order_value', 'max_discount', 'usage_limit', 'used_count', 'valid_from', 'valid_until', 'expiry_date', 'is_active'],
+    ['code', 'type', 'value', 'min_order_value', 'max_discount', 'usage_limit', 'used_count', 'valid_from', 'valid_until', 'is_active'],
+    ['code', 'discount_type', 'discount_value', 'min_order_value', 'max_discount', 'usage_limit', 'used_count', 'expiry_date', 'is_active'],
+    ['code', 'type', 'value', 'discount_type', 'discount_value', 'min_order_value', 'max_discount', 'usage_limit', 'used_count', 'is_active'],
+  ];
+
+  const mapCouponValue = (coupon, column) => {
+    switch (column) {
+      case 'code':
+        return coupon.code;
+      case 'type':
+        return coupon.type;
+      case 'discount_type':
+        return coupon.type === 'free_shipping' ? 'fixed' : coupon.type;
+      case 'value':
+      case 'discount_value':
+        return coupon.value;
+      case 'min_order_value':
+        return coupon.min_order_value;
+      case 'max_discount':
+        return coupon.max_discount;
+      case 'usage_limit':
+        return coupon.usage_limit;
+      case 'used_count':
+        return coupon.used_count;
+      case 'valid_from':
+        return now;
+      case 'valid_until':
+      case 'expiry_date':
+        return validUntil;
+      case 'is_active':
+        return true;
+      default:
+        return null;
+    }
+  };
+
+  let lastError;
+
+  for (const strategy of strategies) {
+    const availableColumns = strategy.filter((column) => couponColumns.has(column));
+
+    // A valid strategy must satisfy at least one discount pair.
+    const hasModernPair = availableColumns.includes('type') && availableColumns.includes('value');
+    const hasLegacyPair = availableColumns.includes('discount_type') && availableColumns.includes('discount_value');
+    if (!hasModernPair && !hasLegacyPair) continue;
+
+    const rows = coupons
+      .filter((coupon) => {
+        // Legacy discount_type constraints typically do not allow free_shipping.
+        if (hasLegacyPair && !hasModernPair && coupon.type === 'free_shipping') return false;
+        return true;
+      })
+      .map((coupon) => availableColumns.map((column) => mapCouponValue(coupon, column)));
+
+    try {
+      await bulkInsert(client, 'coupons', availableColumns, rows);
+      if (hasLegacyPair || availableColumns.includes('expiry_date')) {
+        console.log('ℹ️  Coupon seed compatibility applied for legacy coupon columns.');
+      }
+      return;
+    } catch (error) {
+      lastError = error;
+      const recoverable = ['42703', '23502', '23514'];
+      if (!recoverable.includes(error.code)) {
+        throw error;
+      }
+    }
   }
 
-  await client.query(`
-    INSERT INTO coupons (code, discount_type, discount_value, min_order_value, max_discount, usage_limit, used_count, expiry_date, is_active)
-    VALUES
-    ('WELCOME10', 'percentage', 10, 999, 500, 1000, 0, CURRENT_DATE + INTERVAL '120 days', true),
-    ('FESTIVE20', 'percentage', 20, 1999, 1500, 500, 0, CURRENT_DATE + INTERVAL '120 days', true),
-    ('FLAT500', 'fixed', 500, 2999, NULL, 700, 0, CURRENT_DATE + INTERVAL '120 days', true),
-    ('MEGA1000', 'fixed', 1000, 6999, NULL, 200, 0, CURRENT_DATE + INTERVAL '120 days', true)
-  `);
+  throw lastError || new Error('Unable to seed coupons with available schema columns.');
 }
 
 async function seedDatabase() {
@@ -114,13 +187,29 @@ async function seedDatabase() {
     await client.query('BEGIN');
     console.log('🌱 Starting large-scale database seed...\n');
 
-    await client.query(`
-      TRUNCATE TABLE IF EXISTS
-        order_items, orders, payments, reviews, exchanges, cart, wishlist,
-        product_images, product_variants, size_charts, products, categories,
-        user_addresses, users, coupons
-      CASCADE
-    `);
+    const seedTableOrder = [
+      'order_items',
+      'orders',
+      'payments',
+      'reviews',
+      'exchanges',
+      'cart',
+      'wishlist',
+      'product_images',
+      'product_variants',
+      'size_charts',
+      'products',
+      'categories',
+      'user_addresses',
+      'users',
+      'coupons',
+    ];
+
+    const existingTables = await getExistingTables(client, seedTableOrder);
+    if (existingTables.length) {
+      const truncateTables = seedTableOrder.filter((table) => existingTables.includes(table)).join(', ');
+      await client.query(`TRUNCATE TABLE ${truncateTables} CASCADE`);
+    }
 
     const usersColumns = await getTableColumns(client, 'users');
     const includeIsVerified = usersColumns.has('is_verified');
@@ -168,13 +257,38 @@ async function seedDatabase() {
 
     await bulkInsert(client, 'user_addresses', ['user_id', 'address_line1', 'address_line2', 'city', 'state', 'pincode', 'country', 'is_default'], addressRows);
 
-    const categories = await bulkInsert(
-      client,
-      'categories',
-      ['name', 'slug', 'description', 'is_active'],
-      CATEGORY_CONFIG.map((category) => [category.name, category.slug, category.description, true]),
-      'id, slug'
+    const categoryColumns = await getTableColumns(client, 'categories');
+    const categoryInsertColumns = ['name', 'slug'];
+
+    if (categoryColumns.has('description')) {
+      categoryInsertColumns.push('description');
+    } else if (categoryColumns.has('meta_description')) {
+      categoryInsertColumns.push('meta_description');
+    }
+
+    if (categoryColumns.has('is_active')) {
+      categoryInsertColumns.push('is_active');
+    }
+
+    const categoryRows = CATEGORY_CONFIG.map((category) =>
+      categoryInsertColumns.map((column) => {
+        switch (column) {
+          case 'name':
+            return category.name;
+          case 'slug':
+            return category.slug;
+          case 'description':
+          case 'meta_description':
+            return category.description;
+          case 'is_active':
+            return true;
+          default:
+            return null;
+        }
+      })
     );
+
+    const categories = await bulkInsert(client, 'categories', categoryInsertColumns, categoryRows, 'id, slug');
 
     const categoryBySlug = new Map(categories.map((category) => [category.slug, category.id]));
     const products = [];
