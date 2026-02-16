@@ -14,7 +14,7 @@ import Loading from '@/components/common/Loading';
 
 export default function WishlistPage() {
   const { isAuthenticated } = useAuth();
-  const { addItem } = useCart();
+  const { addToCart } = useCart();
   const router = useRouter();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,10 +52,7 @@ export default function WishlistPage() {
   const handleMoveToCart = async (item: any) => {
     try {
       // Add to cart
-      await api.post('/cart', {
-        product_variant_id: item.variant_id,
-        quantity: 1,
-      });
+      await addToCart(item.variant_id, 1);
 
       // Remove from wishlist
       await api.delete(`/wishlist/${item.id}`);
