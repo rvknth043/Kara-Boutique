@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kara_boutique
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d kara_boutique"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: kara_boutique
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Database migrate
+        run: npm run db:migrate
+
+      - name: Database seed smoke
+        run: SEED_USER_COUNT=20 SEED_PRODUCT_COUNT=150 npm run db:seed
+
+      - name: Database seed verify + report
+        run: SEED_USER_COUNT=20 SEED_PRODUCT_COUNT=150 SEED_REPORT_FILE=database/artifacts/seed-report.json npm run db:verify
+
+      - name: Upload seed verification report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seed-verification-report
+          path: database/artifacts/seed-report.json
+          if-no-files-found: ignore
+
+      - name: Build backend
+        run: npm run build:backend
+
+      - name: Build frontend
+        run: npm run build:frontend
+
+      - name: Run backend unit tests
+        run: npm --workspace backend run test:unit -- --runInBand
