@@ -84,82 +84,27 @@ async function bulkInsert(client, table, columns, rows, returning = '') {
 async function seedCoupons(client) {
   const couponColumns = await getTableColumns(client, 'coupons');
 
-  const now = new Date();
-  const validUntil = new Date(now.getTime() + 120 * 24 * 60 * 60 * 1000);
-
-  const coupons = [
-    { code: 'WELCOME10', type: 'percentage', value: 10, min_order_value: 999, max_discount: 500, usage_limit: 1000, used_count: 0 },
-    { code: 'FESTIVE20', type: 'percentage', value: 20, min_order_value: 1999, max_discount: 1500, usage_limit: 500, used_count: 0 },
-    { code: 'FLAT500', type: 'fixed', value: 500, min_order_value: 2999, max_discount: null, usage_limit: 700, used_count: 0 },
-    { code: 'MEGA1000', type: 'fixed', value: 1000, min_order_value: 6999, max_discount: null, usage_limit: 200, used_count: 0 },
-    { code: 'FREESHIP', type: 'free_shipping', value: 0, min_order_value: 1499, max_discount: null, usage_limit: 2500, used_count: 0 },
-  ];
-
-  const supportsLegacyDiscountType = couponColumns.has('discount_type');
-  const supportsLegacyDiscountValue = couponColumns.has('discount_value');
-  const supportsLegacyExpiryDate = couponColumns.has('expiry_date');
-
-  // Legacy schema in database/schema.sql restricts discount_type to percentage|fixed.
-  // Skip free_shipping when legacy constraint columns are still active.
-  const compatibleCoupons = supportsLegacyDiscountType
-    ? coupons.filter((coupon) => coupon.type !== 'free_shipping')
-    : coupons;
-
-  const insertColumns = ['code'];
-  if (couponColumns.has('type')) insertColumns.push('type');
-  if (couponColumns.has('value')) insertColumns.push('value');
-  if (couponColumns.has('discount_type')) insertColumns.push('discount_type');
-  if (couponColumns.has('discount_value')) insertColumns.push('discount_value');
-  if (couponColumns.has('min_order_value')) insertColumns.push('min_order_value');
-  if (couponColumns.has('max_discount')) insertColumns.push('max_discount');
-  if (couponColumns.has('usage_limit')) insertColumns.push('usage_limit');
-  if (couponColumns.has('used_count')) insertColumns.push('used_count');
-  if (couponColumns.has('valid_from')) insertColumns.push('valid_from');
-  if (couponColumns.has('valid_until')) insertColumns.push('valid_until');
-  if (couponColumns.has('expiry_date')) insertColumns.push('expiry_date');
-  if (couponColumns.has('is_active')) insertColumns.push('is_active');
-
-  const couponRows = compatibleCoupons.map((coupon) =>
-    insertColumns.map((column) => {
-      switch (column) {
-        case 'code':
-          return coupon.code;
-        case 'type':
-        case 'discount_type':
-          return coupon.type === 'free_shipping' ? 'fixed' : coupon.type;
-        case 'value':
-        case 'discount_value':
-          return coupon.value;
-        case 'min_order_value':
-          return coupon.min_order_value;
-        case 'max_discount':
-          return coupon.max_discount;
-        case 'usage_limit':
-          return coupon.usage_limit;
-        case 'used_count':
-          return coupon.used_count;
-        case 'valid_from':
-          return now;
-        case 'valid_until':
-          return validUntil;
-        case 'expiry_date':
-          return validUntil;
-        case 'is_active':
-          return true;
-        default:
-          return null;
-      }
-    })
-  );
-
-  await bulkInsert(client, 'coupons', insertColumns, couponRows);
-
-  if (supportsLegacyDiscountType && !couponColumns.has('type')) {
-    console.log('ℹ️  Seeded coupons using legacy discount_type schema compatibility mode.');
+  if (couponColumns.has('type') && couponColumns.has('value')) {
+    await client.query(`
+      INSERT INTO coupons (code, type, value, min_order_value, max_discount, usage_limit, used_count, valid_from, valid_until, is_active)
+      VALUES
+      ('WELCOME10', 'percentage', 10, 999, 500, 1000, 0, NOW(), NOW() + INTERVAL '120 days', true),
+      ('FESTIVE20', 'percentage', 20, 1999, 1500, 500, 0, NOW(), NOW() + INTERVAL '120 days', true),
+      ('FLAT500', 'fixed', 500, 2999, NULL, 700, 0, NOW(), NOW() + INTERVAL '120 days', true),
+      ('MEGA1000', 'fixed', 1000, 6999, NULL, 200, 0, NOW(), NOW() + INTERVAL '120 days', true),
+      ('FREESHIP', 'free_shipping', 0, 1499, NULL, 2500, 0, NOW(), NOW() + INTERVAL '120 days', true)
+    `);
+    return;
   }
-  if (supportsLegacyDiscountType || supportsLegacyDiscountValue || supportsLegacyExpiryDate) {
-    console.log('ℹ️  Coupon seed compatibility applied for legacy coupon columns.');
-  }
+
+  await client.query(`
+    INSERT INTO coupons (code, discount_type, discount_value, min_order_value, max_discount, usage_limit, used_count, expiry_date, is_active)
+    VALUES
+    ('WELCOME10', 'percentage', 10, 999, 500, 1000, 0, CURRENT_DATE + INTERVAL '120 days', true),
+    ('FESTIVE20', 'percentage', 20, 1999, 1500, 500, 0, CURRENT_DATE + INTERVAL '120 days', true),
+    ('FLAT500', 'fixed', 500, 2999, NULL, 700, 0, CURRENT_DATE + INTERVAL '120 days', true),
+    ('MEGA1000', 'fixed', 1000, 6999, NULL, 200, 0, CURRENT_DATE + INTERVAL '120 days', true)
+  `);
 }
 
 async function seedDatabase() {
