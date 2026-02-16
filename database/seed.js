@@ -1,7 +1,6 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 
-// Database configuration
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
   port: process.env.DB_PORT || 5432,
@@ -11,358 +10,421 @@ const pool = new Pool({
 });
 
 const SALT_ROUNDS = 10;
+const TARGET_USERS = Number(process.env.SEED_USER_COUNT || 100);
+const TARGET_PRODUCTS = Number(process.env.SEED_PRODUCT_COUNT || 1200);
+
+const FIRST_NAMES = ['Aarav', 'Vivaan', 'Aditya', 'Vihaan', 'Arjun', 'Sai', 'Reyansh', 'Aanya', 'Ananya', 'Aadhya', 'Diya', 'Isha', 'Kavya', 'Meera', 'Riya', 'Tanvi', 'Pooja', 'Sneha', 'Neha', 'Priya'];
+const LAST_NAMES = ['Sharma', 'Mehta', 'Gupta', 'Patel', 'Reddy', 'Singh', 'Nair', 'Jain', 'Kapoor', 'Verma', 'Agarwal', 'Bansal', 'Malhotra', 'Iyer', 'Menon', 'Das', 'Khan', 'Yadav', 'Mishra', 'Saxena'];
+
+const CITIES = [
+  { city: 'Mumbai', state: 'Maharashtra', pincode: '400001' },
+  { city: 'Delhi', state: 'Delhi', pincode: '110001' },
+  { city: 'Bangalore', state: 'Karnataka', pincode: '560001' },
+  { city: 'Hyderabad', state: 'Telangana', pincode: '500001' },
+  { city: 'Chennai', state: 'Tamil Nadu', pincode: '600001' },
+  { city: 'Kolkata', state: 'West Bengal', pincode: '700001' },
+  { city: 'Pune', state: 'Maharashtra', pincode: '411001' },
+  { city: 'Ahmedabad', state: 'Gujarat', pincode: '380001' },
+];
+
+const CATEGORY_CONFIG = [
+  { name: 'Sarees', slug: 'sarees', description: 'Traditional and modern saree collections', baseMin: 1800, baseMax: 18000 },
+  { name: 'Lehengas', slug: 'lehengas', description: 'Bridal and festive lehengas', baseMin: 3500, baseMax: 28000 },
+  { name: 'Kurtis', slug: 'kurtis', description: 'Daily wear and designer kurtis', baseMin: 900, baseMax: 5200 },
+  { name: 'Salwar Suits', slug: 'salwar-suits', description: 'Elegant salwar suit sets', baseMin: 1500, baseMax: 9000 },
+  { name: 'Gowns', slug: 'gowns', description: 'Ethnic and indo-western gowns', baseMin: 2500, baseMax: 14000 },
+  { name: 'Dupattas', slug: 'dupattas', description: 'Designer and everyday dupattas', baseMin: 500, baseMax: 3800 },
+  { name: 'Accessories', slug: 'accessories', description: 'Accessories for every outfit', baseMin: 300, baseMax: 4500 },
+  { name: 'Co-ord Sets', slug: 'co-ord-sets', description: 'Matching festive and casual sets', baseMin: 1700, baseMax: 11000 },
+];
+
+const COLORS = ['Red', 'Blue', 'Green', 'Black', 'Pink', 'Maroon', 'Mustard', 'Purple', 'Teal', 'Ivory'];
+const IMAGE_CATALOG = [
+  'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=900',
+  'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=900',
+  'https://images.unsplash.com/photo-1617627143750-d86bc21e4421?w=900',
+  'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=900',
+  'https://images.unsplash.com/photo-1610652456249-8ea400c5f9ab?w=900',
+  'https://images.unsplash.com/photo-1598524815498-e9adc4bb8b41?w=900',
+];
+
+function randomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function slugify(value) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+async function getTableColumns(client, tableName) {
+  const result = await client.query(
+    `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1`,
+    [tableName]
+  );
+  return new Set(result.rows.map((row) => row.column_name));
+}
+
+async function getExistingTables(client, tableNames) {
+  if (!tableNames.length) return [];
+
+  const result = await client.query(
+    `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ANY($1::text[])`,
+    [tableNames]
+  );
+
+  return result.rows.map((row) => row.table_name);
+}
+
+async function bulkInsert(client, table, columns, rows, returning = '') {
+  if (!rows.length) return [];
+
+  const values = [];
+  const placeholders = rows
+    .map((row, rowIndex) => {
+      const rowPlaceholders = columns.map((_, columnIndex) => `$${rowIndex * columns.length + columnIndex + 1}`);
+      values.push(...row);
+      return `(${rowPlaceholders.join(', ')})`;
+    })
+    .join(', ');
+
+  const sql = `INSERT INTO ${table} (${columns.join(', ')}) VALUES ${placeholders} ${returning ? `RETURNING ${returning}` : ''}`;
+  const result = await client.query(sql, values);
+  return result.rows;
+}
+
+async function seedCoupons(client) {
+  const couponColumns = await getTableColumns(client, 'coupons');
+
+  const now = new Date();
+  const validUntil = new Date(now.getTime() + 120 * 24 * 60 * 60 * 1000);
+
+  const coupons = [
+    { code: 'WELCOME10', type: 'percentage', value: 10, min_order_value: 999, max_discount: 500, usage_limit: 1000, used_count: 0 },
+    { code: 'FESTIVE20', type: 'percentage', value: 20, min_order_value: 1999, max_discount: 1500, usage_limit: 500, used_count: 0 },
+    { code: 'FLAT500', type: 'fixed', value: 500, min_order_value: 2999, max_discount: null, usage_limit: 700, used_count: 0 },
+    { code: 'MEGA1000', type: 'fixed', value: 1000, min_order_value: 6999, max_discount: null, usage_limit: 200, used_count: 0 },
+    { code: 'FREESHIP', type: 'free_shipping', value: 0, min_order_value: 1499, max_discount: null, usage_limit: 2500, used_count: 0 },
+  ];
+
+  const supportsLegacyDiscountType = couponColumns.has('discount_type');
+  const supportsLegacyDiscountValue = couponColumns.has('discount_value');
+  const supportsLegacyExpiryDate = couponColumns.has('expiry_date');
+
+  // Legacy schema in database/schema.sql restricts discount_type to percentage|fixed.
+  // Skip free_shipping when legacy constraint columns are still active.
+  const compatibleCoupons = supportsLegacyDiscountType
+    ? coupons.filter((coupon) => coupon.type !== 'free_shipping')
+    : coupons;
+
+  const insertColumns = ['code'];
+  if (couponColumns.has('type')) insertColumns.push('type');
+  if (couponColumns.has('value')) insertColumns.push('value');
+  if (couponColumns.has('discount_type')) insertColumns.push('discount_type');
+  if (couponColumns.has('discount_value')) insertColumns.push('discount_value');
+  if (couponColumns.has('min_order_value')) insertColumns.push('min_order_value');
+  if (couponColumns.has('max_discount')) insertColumns.push('max_discount');
+  if (couponColumns.has('usage_limit')) insertColumns.push('usage_limit');
+  if (couponColumns.has('used_count')) insertColumns.push('used_count');
+  if (couponColumns.has('valid_from')) insertColumns.push('valid_from');
+  if (couponColumns.has('valid_until')) insertColumns.push('valid_until');
+  if (couponColumns.has('expiry_date')) insertColumns.push('expiry_date');
+  if (couponColumns.has('is_active')) insertColumns.push('is_active');
+
+  const couponRows = compatibleCoupons.map((coupon) =>
+    insertColumns.map((column) => {
+      switch (column) {
+        case 'code':
+          return coupon.code;
+        case 'type':
+        case 'discount_type':
+          return coupon.type === 'free_shipping' ? 'fixed' : coupon.type;
+        case 'value':
+        case 'discount_value':
+          return coupon.value;
+        case 'min_order_value':
+          return coupon.min_order_value;
+        case 'max_discount':
+          return coupon.max_discount;
+        case 'usage_limit':
+          return coupon.usage_limit;
+        case 'used_count':
+          return coupon.used_count;
+        case 'valid_from':
+          return now;
+        case 'valid_until':
+          return validUntil;
+        case 'expiry_date':
+          return validUntil;
+        case 'is_active':
+          return true;
+        default:
+          return null;
+      }
+    })
+  );
+
+  await bulkInsert(client, 'coupons', insertColumns, couponRows);
+
+  if (supportsLegacyDiscountType && !couponColumns.has('type')) {
+    console.log('ℹ️  Seeded coupons using legacy discount_type schema compatibility mode.');
+  }
+  if (supportsLegacyDiscountType || supportsLegacyDiscountValue || supportsLegacyExpiryDate) {
+    console.log('ℹ️  Coupon seed compatibility applied for legacy coupon columns.');
+  }
+}
 
 async function seedDatabase() {
   const client = await pool.connect();
-  
+
   try {
     await client.query('BEGIN');
-    console.log('🌱 Starting database seeding...\n');
+    console.log('🌱 Starting large-scale database seed...\n');
 
-    // Clear existing data
-    console.log('🗑️  Clearing existing data...');
-    await client.query(`
-      TRUNCATE TABLE 
-        order_items, orders, payments, reviews, exchanges, cart, wishlist,
-        product_images, product_variants, size_charts, products, categories, 
-        user_addresses, users, coupons
-      CASCADE
-    `);
-    console.log('✓ Existing data cleared\n');
+    const seedTableOrder = [
+      'order_items',
+      'orders',
+      'payments',
+      'reviews',
+      'exchanges',
+      'cart',
+      'wishlist',
+      'product_images',
+      'product_variants',
+      'size_charts',
+      'products',
+      'categories',
+      'user_addresses',
+      'users',
+      'coupons',
+    ];
 
-    // Hash password for all users
+    const existingTables = await getExistingTables(client, seedTableOrder);
+    if (existingTables.length) {
+      const truncateTables = seedTableOrder.filter((table) => existingTables.includes(table)).join(', ');
+      await client.query(`TRUNCATE TABLE ${truncateTables} CASCADE`);
+    }
+
+    const usersColumns = await getTableColumns(client, 'users');
+    const includeIsVerified = usersColumns.has('is_verified');
     const hashedPassword = await bcrypt.hash('password123', SALT_ROUNDS);
-    console.log('🔐 Password hashed: password123\n');
 
-    // =====================================================
-    // USERS
-    // =====================================================
-    console.log('👥 Creating users...');
-    const usersResult = await client.query(`
-      INSERT INTO users (email, password_hash, full_name, phone, role, is_verified) VALUES
-      ('admin@karaboutique.com', $1, 'Admin User', '9876543210', 'admin', true),
-      ('manager@karaboutique.com', $1, 'Manager User', '9876543211', 'manager', true),
-      ('priya.sharma@gmail.com', $1, 'Priya Sharma', '9876543212', 'customer', true),
-      ('anjali.mehta@gmail.com', $1, 'Anjali Mehta', '9876543213', 'customer', true),
-      ('neha.gupta@gmail.com', $1, 'Neha Gupta', '9876543214', 'customer', true),
-      ('kavya.reddy@gmail.com', $1, 'Kavya Reddy', '9876543215', 'customer', true),
-      ('riya.singh@gmail.com', $1, 'Riya Singh', '9876543216', 'customer', true),
-      ('simran.kaur@gmail.com', $1, 'Simran Kaur', '9876543217', 'customer', true),
-      ('tanvi.patel@gmail.com', $1, 'Tanvi Patel', '9876543218', 'customer', true),
-      ('divya.nair@gmail.com', $1, 'Divya Nair', '9876543219', 'customer', true)
-      RETURNING id, email, role
-    `, [hashedPassword]);
-    console.log(`✓ Created ${usersResult.rows.length} users`);
-    
-    const users = usersResult.rows;
-    const adminUser = users.find(u => u.role === 'admin');
-    const customerUsers = users.filter(u => u.role === 'customer');
+    const userColumns = ['email', 'password_hash', 'full_name', 'phone', 'role'];
+    if (includeIsVerified) userColumns.push('is_verified');
 
-    // =====================================================
-    // USER ADDRESSES
-    // =====================================================
-    console.log('📍 Creating addresses...');
-    const addresses = [
-      { user: customerUsers[0], line1: 'Plot 123, Rainbow Apartments', line2: 'Near City Mall', city: 'Mumbai', state: 'Maharashtra', pincode: '400001' },
-      { user: customerUsers[1], line1: '456 Green Park Colony', line2: 'Opposite Metro', city: 'Delhi', state: 'Delhi', pincode: '110016' },
-      { user: customerUsers[2], line1: '789 Silk Board Layout', line2: 'HSR Main Road', city: 'Bangalore', state: 'Karnataka', pincode: '560102' },
-      { user: customerUsers[3], line1: '321 Beach Road', line2: 'Near Marina', city: 'Chennai', state: 'Tamil Nadu', pincode: '600001' },
-      { user: customerUsers[4], line1: '654 Park Street', line2: 'Salt Lake', city: 'Kolkata', state: 'West Bengal', pincode: '700001' },
+    const users = [
+      ['admin@karaboutique.com', hashedPassword, 'Admin User', '9876500000', 'admin'],
+      ['manager@karaboutique.com', hashedPassword, 'Manager User', '9876500001', 'manager'],
     ];
 
-    for (const addr of addresses) {
-      await client.query(`
-        INSERT INTO user_addresses (user_id, address_line1, address_line2, city, state, pincode, country, is_default)
-        VALUES ($1, $2, $3, $4, $5, $6, 'India', true)
-      `, [addr.user.id, addr.line1, addr.line2, addr.city, addr.state, addr.pincode]);
-    }
-    console.log(`✓ Created ${addresses.length} addresses\n`);
-
-    // =====================================================
-    // CATEGORIES
-    // =====================================================
-    console.log('📂 Creating categories...');
-    const categoriesResult = await client.query(`
-      INSERT INTO categories (name, slug, description, is_active) VALUES
-      ('Sarees', 'sarees', 'Traditional Indian sarees', true),
-      ('Lehengas', 'lehengas', 'Ethnic lehengas for weddings', true),
-      ('Kurtis', 'kurtis', 'Contemporary kurtis', true),
-      ('Salwar Suits', 'salwar-suits', 'Elegant salwar sets', true),
-      ('Gowns', 'gowns', 'Indo-western gowns', true),
-      ('Dupattas', 'dupattas', 'Stylish dupattas', true),
-      ('Accessories', 'accessories', 'Jewelry and accessories', true)
-      RETURNING id, slug
-    `);
-    console.log(`✓ Created ${categoriesResult.rows.length} categories\n`);
-    
-    const categories = categoriesResult.rows;
-
-    // =====================================================
-    // PRODUCTS
-    // =====================================================
-    console.log('🛍️  Creating products...');
-    
-    const products = [
-      // Sarees
-      { name: 'Banarasi Silk Saree - Royal Blue', slug: 'banarasi-silk-saree-royal-blue', desc: 'Exquisite Banarasi silk saree with golden zari work', price: 8999, discount: 6999, category: 'sarees', featured: true },
-      { name: 'Kanjivaram Silk Saree - Red', slug: 'kanjivaram-silk-saree-red', desc: 'Traditional Kanjivaram saree with temple border', price: 12999, discount: 9999, category: 'sarees', featured: true },
-      { name: 'Chiffon Saree - Pastel Pink', slug: 'chiffon-saree-pastel-pink', desc: 'Lightweight chiffon saree with embroidery', price: 3499, discount: 2799, category: 'sarees', featured: false },
-      { name: 'Georgette Saree - Navy Blue', slug: 'georgette-saree-navy-blue', desc: 'Elegant georgette saree with sequin work', price: 4999, discount: 3999, category: 'sarees', featured: false },
-      { name: 'Designer Saree - Maroon', slug: 'designer-saree-maroon', desc: 'Designer saree with contemporary styling', price: 9999, discount: 7999, category: 'sarees', featured: true },
-      
-      // Lehengas
-      { name: 'Bridal Lehenga - Red Gold', slug: 'bridal-lehenga-red-gold', desc: 'Stunning bridal lehenga with heavy embroidery', price: 24999, discount: 19999, category: 'lehengas', featured: true },
-      { name: 'Party Wear Lehenga - Pink', slug: 'party-wear-lehenga-pink', desc: 'Beautiful party wear lehenga with mirror work', price: 15999, discount: 12999, category: 'lehengas', featured: true },
-      { name: 'Velvet Lehenga - Wine', slug: 'velvet-lehenga-wine', desc: 'Rich velvet lehenga with stone work', price: 21999, discount: 17999, category: 'lehengas', featured: true },
-      { name: 'Indo Western Lehenga - Blue', slug: 'indo-western-lehenga-blue', desc: 'Contemporary Indo-western lehenga', price: 18999, discount: 14999, category: 'lehengas', featured: false },
-      
-      // Kurtis
-      { name: 'Cotton Kurti - White', slug: 'cotton-kurti-white', desc: 'Comfortable pure cotton kurti with block prints', price: 1299, discount: 999, category: 'kurtis', featured: false },
-      { name: 'Anarkali Kurti - Purple', slug: 'anarkali-kurti-purple', desc: 'Flowing anarkali style kurti with embroidery', price: 1999, discount: 1499, category: 'kurtis', featured: true },
-      { name: 'Designer Kurti - Maroon', slug: 'designer-kurti-maroon', desc: 'Designer kurti with unique neckline', price: 2299, discount: 1799, category: 'kurtis', featured: true },
-      { name: 'Palazzo Kurti Set - Blue', slug: 'palazzo-kurti-set-blue', desc: 'Kurti with matching palazzo pants', price: 2499, discount: 1999, category: 'kurtis', featured: true },
-      { name: 'Printed Kurti - Multicolor', slug: 'printed-kurti-multicolor', desc: 'Vibrant printed kurti', price: 1399, discount: 999, category: 'kurtis', featured: false },
-      { name: 'Long Kurti - Green', slug: 'long-kurti-green', desc: 'Floor length kurti for festive occasions', price: 2199, discount: 1699, category: 'kurtis', featured: false },
-    ];
-
-    const createdProducts = [];
-    for (const prod of products) {
-      const categoryId = categories.find(c => c.slug === prod.category).id;
-      const result = await client.query(`
-        INSERT INTO products (name, slug, description, base_price, discount_price, category_id, is_featured, is_active)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, true)
-        RETURNING id, slug, name
-      `, [prod.name, prod.slug, prod.desc, prod.price, prod.discount, categoryId, prod.featured]);
-      createdProducts.push(result.rows[0]);
-    }
-    console.log(`✓ Created ${createdProducts.length} products\n`);
-
-    // =====================================================
-    // PRODUCT VARIANTS
-    // =====================================================
-    console.log('📦 Creating product variants...');
-    let variantCount = 0;
-
-    for (const product of createdProducts) {
-      // Sarees - Free Size
-      if (product.slug.includes('saree')) {
-        await client.query(`
-          INSERT INTO product_variants (product_id, size, color, sku, stock_quantity, reserved_quantity)
-          VALUES ($1, 'Free Size', 'Default', $2, 20, 0)
-        `, [product.id, `${product.slug.substring(0, 10).toUpperCase()}-001`]);
-        variantCount++;
-      }
-      
-      // Lehengas - Multiple Sizes
-      else if (product.slug.includes('lehenga')) {
-        const sizes = ['S', 'M', 'L', 'XL'];
-        for (const size of sizes) {
-          await client.query(`
-            INSERT INTO product_variants (product_id, size, color, sku, stock_quantity, reserved_quantity)
-            VALUES ($1, $2, 'Default', $3, 15, 0)
-          `, [product.id, size, `${product.slug.substring(0, 8).toUpperCase()}-${size}`]);
-          variantCount++;
-        }
-      }
-      
-      // Kurtis - Multiple Sizes & Colors
-      else if (product.slug.includes('kurti')) {
-        const sizes = ['S', 'M', 'L', 'XL', 'XXL'];
-        const colors = ['White', 'Black', 'Blue'];
-        for (const size of sizes) {
-          for (const color of colors.slice(0, 2)) { // 2 colors per size
-            await client.query(`
-              INSERT INTO product_variants (product_id, size, color, sku, stock_quantity, reserved_quantity)
-              VALUES ($1, $2, $3, $4, 25, 0)
-            `, [product.id, size, color, `${product.slug.substring(0, 6).toUpperCase()}-${size}-${color[0]}`]);
-            variantCount++;
-          }
-        }
-      }
-    }
-    console.log(`✓ Created ${variantCount} product variants\n`);
-
-    // =====================================================
-    // PRODUCT IMAGES
-    // =====================================================
-    console.log('🖼️  Creating product images...');
-    const imageUrls = {
-      saree: [
-        'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800',
-        'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=800',
-        'https://images.unsplash.com/photo-1617627143750-d86bc21e4421?w=800',
-      ],
-      lehenga: [
-        'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=800',
-        'https://images.unsplash.com/photo-1598524815498-e9adc4bb8b41?w=800',
-      ],
-      kurti: [
-        'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=800',
-        'https://images.unsplash.com/photo-1610652456249-8ea400c5f9ab?w=800',
-      ],
-    };
-
-    for (const product of createdProducts) {
-      let urls = imageUrls.saree;
-      if (product.slug.includes('lehenga')) urls = imageUrls.lehenga;
-      else if (product.slug.includes('kurti')) urls = imageUrls.kurti;
-
-      for (let i = 0; i < urls.length; i++) {
-        await client.query(`
-          INSERT INTO product_images (product_id, image_url, display_order, is_primary)
-          VALUES ($1, $2, $3, $4)
-        `, [product.id, urls[i], i + 1, i === 0]);
-      }
-    }
-    console.log(`✓ Created product images\n`);
-
-    // =====================================================
-    // SIZE CHARTS
-    // =====================================================
-    console.log('📏 Creating size charts...');
-    const lehengas = createdProducts.filter(p => p.slug.includes('lehenga'));
-    for (const lehenga of lehengas) {
-      const sizes = [
-        { size: 'S', bust: '32-34', waist: '26-28', hips: '34-36', length: '42' },
-        { size: 'M', bust: '34-36', waist: '28-30', hips: '36-38', length: '42' },
-        { size: 'L', bust: '36-38', waist: '30-32', hips: '38-40', length: '42' },
-        { size: 'XL', bust: '38-40', waist: '32-34', hips: '40-42', length: '42' },
+    const customerCount = Math.max(TARGET_USERS - users.length, 0);
+    for (let i = 0; i < customerCount; i++) {
+      const first = FIRST_NAMES[i % FIRST_NAMES.length];
+      const last = LAST_NAMES[Math.floor(i / FIRST_NAMES.length) % LAST_NAMES.length];
+      const row = [
+        `${slugify(first)}.${slugify(last)}${String(i + 1).padStart(3, '0')}@example.com`,
+        hashedPassword,
+        `${first} ${last}`,
+        `98${String(10000000 + i).slice(1)}`,
+        'customer',
       ];
-      
-      for (const s of sizes) {
-        await client.query(`
-          INSERT INTO size_charts (product_id, size, bust, waist, hips, length)
-          VALUES ($1, $2, $3, $4, $5, $6)
-        `, [lehenga.id, s.size, s.bust, s.waist, s.hips, s.length]);
-      }
+      if (includeIsVerified) row.push(true);
+      users.push(row);
     }
-    console.log(`✓ Created size charts\n`);
 
-    // =====================================================
-    // COUPONS
-    // =====================================================
-    console.log('🎫 Creating coupons...');
-    await client.query(`
-      INSERT INTO coupons (code, type, value, min_order_value, max_discount, usage_limit, used_count, valid_from, valid_until, is_active) VALUES
-      ('WELCOME10', 'percentage', 10, 1000, 500, 100, 0, NOW(), NOW() + INTERVAL '30 days', true),
-      ('FESTIVE20', 'percentage', 20, 2000, 1000, 50, 0, NOW(), NOW() + INTERVAL '15 days', true),
-      ('FLAT500', 'fixed', 500, 3000, NULL, 200, 0, NOW(), NOW() + INTERVAL '60 days', true),
-      ('FREESHIP', 'free_shipping', 0, 1000, NULL, 500, 0, NOW(), NOW() + INTERVAL '90 days', true),
-      ('SUMMER25', 'percentage', 25, 5000, 2000, 30, 0, NOW(), NOW() + INTERVAL '20 days', true)
-    `);
-    console.log(`✓ Created 5 coupons\n`);
+    const userRows = await bulkInsert(client, 'users', userColumns, users, 'id, email, role');
+    const customers = userRows.filter((user) => user.role === 'customer');
 
-    // =====================================================
-    // SAMPLE ORDERS FOR TESTING
-    // =====================================================
-    console.log('📦 Creating sample orders...');
-    
-    // Get first customer and their address
-    const customer = customerUsers[0];
-    const addressResult = await client.query(
-      'SELECT id FROM user_addresses WHERE user_id = $1 LIMIT 1',
-      [customer.id]
+    const addressRows = customers.map((customer, index) => {
+      const location = CITIES[index % CITIES.length];
+      return [
+        customer.id,
+        `House ${100 + index}, ${location.city} Residency`,
+        `Sector ${1 + (index % 20)}`,
+        location.city,
+        location.state,
+        String(Number(location.pincode) + (index % 200)).padStart(6, '0'),
+        'India',
+        true,
+      ];
+    });
+
+    await bulkInsert(client, 'user_addresses', ['user_id', 'address_line1', 'address_line2', 'city', 'state', 'pincode', 'country', 'is_default'], addressRows);
+
+    const categoryColumns = await getTableColumns(client, 'categories');
+    const categoryInsertColumns = ['name', 'slug'];
+
+    if (categoryColumns.has('description')) {
+      categoryInsertColumns.push('description');
+    } else if (categoryColumns.has('meta_description')) {
+      categoryInsertColumns.push('meta_description');
+    }
+
+    if (categoryColumns.has('is_active')) {
+      categoryInsertColumns.push('is_active');
+    }
+
+    const categoryRows = CATEGORY_CONFIG.map((category) =>
+      categoryInsertColumns.map((column) => {
+        switch (column) {
+          case 'name':
+            return category.name;
+          case 'slug':
+            return category.slug;
+          case 'description':
+          case 'meta_description':
+            return category.description;
+          case 'is_active':
+            return true;
+          default:
+            return null;
+        }
+      })
     );
-    const addressId = addressResult.rows[0].id;
 
-    // Get some product variants
-    const variantsResult = await client.query('SELECT id FROM product_variants LIMIT 5');
-    const variants = variantsResult.rows;
+    const categories = await bulkInsert(client, 'categories', categoryInsertColumns, categoryRows, 'id, slug');
 
-    // Create 3 sample orders
-    const orderStatuses = ['delivered', 'shipped', 'processing'];
-    for (let i = 0; i < 3; i++) {
-      const orderNumber = `ORD-${Date.now()}-${i}`;
-      const orderResult = await client.query(`
-        INSERT INTO orders (
-          user_id, order_number, total_amount, shipping_charge, 
-          discount_amount, final_amount, payment_method, shipping_address_id,
-          payment_status, order_status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        RETURNING id
-      `, [
-        customer.id, 
-        orderNumber, 
-        5000 + (i * 1000), 
-        i === 0 ? 0 : 49, 
-        i * 100, 
-        5000 + (i * 1000) - (i * 100) + (i === 0 ? 0 : 49),
-        i === 0 ? 'razorpay' : 'cod',
-        addressId,
-        'paid',
-        orderStatuses[i]
+    const categoryBySlug = new Map(categories.map((category) => [category.slug, category.id]));
+    const products = [];
+
+    for (let index = 0; index < TARGET_PRODUCTS; index++) {
+      const category = CATEGORY_CONFIG[index % CATEGORY_CONFIG.length];
+      const sequence = String(index + 1).padStart(4, '0');
+      const color = COLORS[index % COLORS.length];
+      const name = `${category.name.slice(0, -1)} ${color} Design ${randomInt(100, 999)}`;
+      const basePrice = randomInt(category.baseMin, category.baseMax);
+      const discountPrice = Math.max(Math.floor(basePrice * (1 - randomInt(8, 25) / 100)), 1);
+
+      products.push([
+        name,
+        `${category.slug}-${slugify(color)}-${sequence}`,
+        `${name} with premium fabric and handcrafted detailing.`,
+        basePrice,
+        discountPrice,
+        categoryBySlug.get(category.slug),
+        index % 20 === 0,
+        true,
       ]);
+    }
+
+    const productRows = await bulkInsert(
+      client,
+      'products',
+      ['name', 'slug', 'description', 'base_price', 'discount_price', 'category_id', 'is_featured', 'is_active'],
+      products,
+      'id'
+    );
+
+    const variantRows = [];
+    const sizeChartRows = [];
+    const imageRows = [];
+
+    productRows.forEach((product, index) => {
+      const variantSizes = index % 3 === 0 ? ['S', 'M', 'L', 'XL'] : ['S', 'M', 'L'];
+      const primaryColor = COLORS[index % COLORS.length];
+
+      variantSizes.forEach((size, sizeIndex) => {
+        variantRows.push([
+          product.id,
+          size,
+          primaryColor,
+          `KB-${String(index + 1).padStart(4, '0')}-${size}-${primaryColor.slice(0, 2).toUpperCase()}`,
+          randomInt(10, 80),
+          0,
+        ]);
+
+        sizeChartRows.push([
+          product.id,
+          size,
+          `${32 + sizeIndex * 2}-${34 + sizeIndex * 2}`,
+          `${26 + sizeIndex * 2}-${28 + sizeIndex * 2}`,
+          `${34 + sizeIndex * 2}-${36 + sizeIndex * 2}`,
+          `${40 + (index % 5)}`,
+        ]);
+      });
+
+      const imageBase = index % IMAGE_CATALOG.length;
+      imageRows.push([product.id, IMAGE_CATALOG[imageBase], 1, true]);
+      imageRows.push([product.id, IMAGE_CATALOG[(imageBase + 1) % IMAGE_CATALOG.length], 2, false]);
+    });
+
+    await bulkInsert(client, 'product_variants', ['product_id', 'size', 'color', 'sku', 'stock_quantity', 'reserved_quantity'], variantRows);
+    await bulkInsert(client, 'size_charts', ['product_id', 'size', 'bust', 'waist', 'hips', 'length'], sizeChartRows);
+    await bulkInsert(client, 'product_images', ['product_id', 'image_url', 'display_order', 'is_primary'], imageRows);
+
+    await seedCoupons(client);
+
+    const variantIdRows = await client.query('SELECT id, product_id FROM product_variants LIMIT 500');
+    const addressIdRows = await client.query('SELECT id, user_id FROM user_addresses');
+    const addressByUser = new Map(addressIdRows.rows.map((row) => [row.user_id, row.id]));
+    const orderStatuses = ['delivered', 'shipped', 'processing', 'placed'];
+    const paymentMethods = ['COD', 'UPI', 'CARD', 'NETBANKING'];
+    const ordersToCreate = Math.min(300, customers.length * 2);
+
+    const createdOrderDetails = [];
+    for (let i = 0; i < ordersToCreate; i++) {
+      const customer = customers[i % customers.length];
+      const addressId = addressByUser.get(customer.id);
+      if (!addressId) continue;
+
+      const variant = variantIdRows.rows[i % variantIdRows.rows.length];
+      const quantity = randomInt(1, 3);
+      const unitPrice = randomInt(900, 5000);
+      const subtotal = quantity * unitPrice;
+      const shipping = subtotal >= 1999 ? 0 : 49;
+      const discount = subtotal >= 2500 ? Math.round(subtotal * 0.1) : 0;
+
+      const orderResult = await client.query(
+        `INSERT INTO orders (
+          user_id, order_number, total_amount, shipping_charge, discount_amount,
+          final_amount, payment_method, shipping_address_id, payment_status, order_status
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+        RETURNING id`,
+        [
+          customer.id,
+          `ORD-${Date.now()}-${String(i + 1).padStart(4, '0')}`,
+          subtotal,
+          shipping,
+          discount,
+          subtotal + shipping - discount,
+          paymentMethods[i % paymentMethods.length],
+          addressId,
+          'paid',
+          orderStatuses[i % orderStatuses.length],
+        ]
+      );
 
       const orderId = orderResult.rows[0].id;
-
-      // Add order items
-      const variant = variants[i];
-      await client.query(`
-        INSERT INTO order_items (order_id, product_variant_id, quantity, price, subtotal)
-        VALUES ($1, $2, $3, $4, $5)
-      `, [orderId, variant.id, 1 + i, 2000, 2000 * (1 + i)]);
+      await client.query('INSERT INTO order_items (order_id, product_variant_id, quantity, price, subtotal) VALUES ($1,$2,$3,$4,$5)', [orderId, variant.id, quantity, unitPrice, subtotal]);
+      createdOrderDetails.push({ orderId, userId: customer.id, productId: variant.product_id });
     }
-    console.log(`✓ Created 3 sample orders\n`);
 
-    // =====================================================
-    // SAMPLE REVIEWS
-    // =====================================================
-    console.log('⭐ Creating sample reviews...');
-    const reviewTexts = [
-      'Excellent product! Beautiful color and amazing quality. Highly recommend!',
-      'Very good purchase. The fabric is soft and comfortable. Worth the price.',
-      'Loved it! Perfect for the occasion. Will buy again.',
-      'Good product but delivery was delayed. Overall satisfied.',
-      'Amazing quality! Exceeded my expectations. Great value for money.',
-    ];
-
-    for (let i = 0; i < 5; i++) {
-      const product = createdProducts[i];
-      const reviewer = customerUsers[i % customerUsers.length];
-      
-      await client.query(`
-        INSERT INTO reviews (user_id, product_id, rating, review_text, is_verified_purchase)
-        VALUES ($1, $2, $3, $4, true)
-      `, [reviewer.id, product.id, 4 + (i % 2), reviewTexts[i]]);
+    const reviewsToCreate = Math.min(250, createdOrderDetails.length);
+    for (let i = 0; i < reviewsToCreate; i++) {
+      const reviewSeed = createdOrderDetails[i];
+      await client.query(
+        'INSERT INTO reviews (user_id, product_id, order_id, rating, review_text, is_verified) VALUES ($1,$2,$3,$4,$5,true)',
+        [reviewSeed.userId, reviewSeed.productId, reviewSeed.orderId, randomInt(3, 5), `Great value for money. Review sample #${i + 1}.`]
+      );
     }
-    console.log(`✓ Created 5 sample reviews\n`);
+
+    const wishlistRows = [];
+    const cartRows = [];
+    for (let i = 0; i < Math.min(200, customers.length * 2); i++) {
+      const customer = customers[i % customers.length];
+      const variant = variantIdRows.rows[i % variantIdRows.rows.length];
+      wishlistRows.push([customer.id, variant.product_id]);
+      cartRows.push([customer.id, variant.id, randomInt(1, 3)]);
+    }
+
+    await bulkInsert(client, 'wishlist', ['user_id', 'product_id'], wishlistRows);
+    await bulkInsert(client, 'cart', ['user_id', 'product_variant_id', 'quantity'], cartRows);
 
     await client.query('COMMIT');
-    console.log('✅ DATABASE SEEDING COMPLETED SUCCESSFULLY!\n');
-    
-    // Print summary
-    console.log('📊 SEED DATA SUMMARY');
-    console.log('═══════════════════════════════════════');
-    console.log('Users:            12 (2 admin, 10 customers)');
-    console.log('Categories:       7');
-    console.log('Products:         15');
-    console.log(`Variants:         ${variantCount}`);
-    console.log('Coupons:          5');
-    console.log('Orders:           3');
-    console.log('Reviews:          5');
-    console.log('Addresses:        5');
-    console.log('═══════════════════════════════════════\n');
-    
-    console.log('🔑 LOGIN CREDENTIALS');
-    console.log('═══════════════════════════════════════');
-    console.log('Admin:');
-    console.log('  Email:    admin@karaboutique.com');
-    console.log('  Password: password123');
-    console.log('');
-    console.log('Customer:');
-    console.log('  Email:    priya.sharma@gmail.com');
-    console.log('  Password: password123');
-    console.log('═══════════════════════════════════════\n');
-    
-    console.log('💳 ACTIVE COUPONS');
-    console.log('═══════════════════════════════════════');
-    console.log('WELCOME10  - 10% off (min order: ₹1000)');
-    console.log('FESTIVE20  - 20% off (min order: ₹2000)');
-    console.log('FLAT500    - ₹500 off (min order: ₹3000)');
-    console.log('FREESHIP   - Free shipping (min order: ₹1000)');
-    console.log('SUMMER25   - 25% off (min order: ₹5000)');
-    console.log('═══════════════════════════════════════\n');
-    
+
+    console.log('\n✅ DATABASE SEEDING COMPLETED');
+    console.log(`Users: ${userRows.length}, Products: ${productRows.length}, Variants: ${variantRows.length}, Orders: ${createdOrderDetails.length}`);
+    console.log(`Reviews: ${reviewsToCreate}, Wishlist: ${wishlistRows.length}, Cart: ${cartRows.length}`);
+    console.log('ℹ️  Override volumes using SEED_USER_COUNT and SEED_PRODUCT_COUNT.');
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('❌ Error seeding database:', error);
@@ -373,7 +435,6 @@ async function seedDatabase() {
   }
 }
 
-// Run the seed script
 seedDatabase()
   .then(() => {
     console.log('✅ Seeding completed successfully!');
