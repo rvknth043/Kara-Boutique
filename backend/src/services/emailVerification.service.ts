@@ -77,11 +77,11 @@ export class EmailVerificationService {
       </div>
     `;
 
-    await EmailService.sendEmail({
-      to: email,
-      subject: 'Verify Your Email - Kara Boutique',
-      html: emailContent,
-    });
+    await EmailService.sendEmail(
+      email,
+      'Verify Your Email - Kara Boutique',
+      emailContent
+    );
   }
 
   /**
