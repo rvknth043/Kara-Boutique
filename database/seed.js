@@ -162,13 +162,17 @@ async function seedCoupons(client) {
       })
       .map((coupon) => availableColumns.map((column) => mapCouponValue(coupon, column)));
 
+    await client.query('SAVEPOINT coupon_seed_attempt');
     try {
       await bulkInsert(client, 'coupons', availableColumns, rows);
+      await client.query('RELEASE SAVEPOINT coupon_seed_attempt');
       if (hasLegacyPair || availableColumns.includes('expiry_date')) {
         console.log('ℹ️  Coupon seed compatibility applied for legacy coupon columns.');
       }
       return;
     } catch (error) {
+      await client.query('ROLLBACK TO SAVEPOINT coupon_seed_attempt');
+      await client.query('RELEASE SAVEPOINT coupon_seed_attempt');
       lastError = error;
       const recoverable = ['42703', '23502', '23514'];
       if (!recoverable.includes(error.code)) {
