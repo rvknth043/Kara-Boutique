@@ -226,8 +226,8 @@ export class InvoiceService {
     doc.end();
     
     // Wait for file to be written
-    await new Promise((resolve) => {
-      writeStream.on('finish', resolve);
+    await new Promise<void>((resolve) => {
+      writeStream.on('finish', () => resolve());
     });
     
     return filepath;
