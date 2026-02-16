@@ -9,6 +9,10 @@ interface User {
   full_name: string;
   email: string;
   role: string;
+  phone?: string;
+  created_at?: string;
+  updated_at?: string;
+  is_verified?: boolean;
 }
 
 interface AuthContextType {
