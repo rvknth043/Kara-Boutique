@@ -169,7 +169,7 @@ export default function Header() {
             {categories.map((category) => (
               <Link
                 key={category.id}
-                href={`/products/category/${category.slug}`}
+                href={`/products/category/${encodeURIComponent(category.slug)}`}
                 className="text-dark text-decoration-none"
               >
                 {category.name}

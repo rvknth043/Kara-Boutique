@@ -52,6 +52,11 @@ export default function WishlistPage() {
   const handleMoveToCart = async (item: any) => {
     try {
       // Add to cart
+      if (!item.variant_id) {
+        toast.error('No purchasable variant available for this product');
+        return;
+      }
+
       await addToCart(item.variant_id, 1);
 
       // Remove from wishlist
