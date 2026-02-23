@@ -65,7 +65,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Apply rate limiting
-app.use(rateLimiter as RequestHandler);
+app.use((req: Request, res: Response, next: NextFunction) => {
+  rateLimiter(req, res, next);
+});
 
 // Request logging
 app.use((req: Request, res: Response, next: NextFunction) => {
