@@ -32,6 +32,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     : 0;
 
   const imageUrl = product.images?.[0]?.image_url || '/placeholder.jpg';
+  const productPath = `/products/${product.slug || product.id}`;
   const inWishlist = isInWishlist(product.id);
 
   const handleWishlistClick = (e: React.MouseEvent) => {
@@ -58,7 +59,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <div className="product-card card h-100">
-      <Link href={`/products/${product.slug}`} className="position-relative">
+      <Link href={productPath} className="position-relative">
         <Image
           src={imageUrl}
           alt={product.name}
@@ -90,7 +91,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       </Link>
 
       <div className="card-body d-flex flex-column">
-        <Link href={`/products/${product.slug}`} className="text-decoration-none text-dark">
+        <Link href={productPath} className="text-decoration-none text-dark">
           <h6 className="card-title mb-2">{product.name}</h6>
         </Link>
 
