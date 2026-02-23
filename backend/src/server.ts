@@ -1,4 +1,4 @@
-import express, { Application, Request, Response, NextFunction } from 'express';
+import express, { Application, Request, Response, NextFunction, RequestHandler } from 'express';
 import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -46,15 +46,26 @@ const socketService = initializeSocket(httpServer);
 
 // Middleware
 app.use(helmet()); // Security headers
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000,http://127.0.0.1:3000')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Apply rate limiting
-app.use(rateLimiter);
+app.use(rateLimiter as RequestHandler);
 
 // Request logging
 app.use((req: Request, res: Response, next: NextFunction) => {

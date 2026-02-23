@@ -47,8 +47,7 @@ export class CheckoutService {
       throw new AppError(
         'Some items in your cart are out of stock',
         400,
-        'INSUFFICIENT_STOCK',
-        validation.issues
+        'INSUFFICIENT_STOCK'
       );
     }
     

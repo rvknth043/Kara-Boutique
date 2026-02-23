@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 -- Migration: Add email verification tokens table
 -- Date: 2024-02-15
 
@@ -10,8 +12,8 @@ CREATE TABLE IF NOT EXISTS email_verification_tokens (
   UNIQUE(user_id)
 );
 
-CREATE INDEX idx_email_verification_token ON email_verification_tokens(token);
-CREATE INDEX idx_email_verification_user ON email_verification_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_email_verification_token ON email_verification_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_email_verification_user ON email_verification_tokens(user_id);
 
 -- Add notification preferences table
 CREATE TABLE IF NOT EXISTS notification_preferences (
@@ -28,4 +30,4 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
   UNIQUE(user_id)
 );
 
-CREATE INDEX idx_notification_prefs_user ON notification_preferences(user_id);
+CREATE INDEX IF NOT EXISTS idx_notification_prefs_user ON notification_preferences(user_id);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
@@ -10,23 +10,39 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, isAuthenticated, loading: authLoading } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.replace('/');
+    }
+  }, [authLoading, isAuthenticated, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      await login(email, password);
+      await login(email.trim(), password);
       toast.success('Login successful!');
-      router.push('/');
+      router.replace('/');
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Login failed');
+      const apiMessage = error.response?.data?.error?.message
+        || error.response?.data?.errors?.[0]?.msg;
+      toast.error(apiMessage || 'Login failed');
     } finally {
       setLoading(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light">
+        <div className="spinner-border text-primary" role="status" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light">
