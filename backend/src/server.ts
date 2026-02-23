@@ -1,4 +1,4 @@
-import express, { Application, Request, Response, NextFunction } from 'express';
+import express, { Application, Request, Response, NextFunction, RequestHandler } from 'express';
 import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';

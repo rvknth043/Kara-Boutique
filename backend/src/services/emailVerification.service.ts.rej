@@ -1,0 +1,62 @@
+diff a/backend/src/services/emailVerification.service.ts b/backend/src/services/emailVerification.service.ts	(rejected hunks)
+@@ -55,55 +55,55 @@ export class EmailVerificationService {
+           <div style="text-align: center; margin: 30px 0;">
+             <a href="${verificationUrl}" 
+                style="background-color: #D4A373; color: white; padding: 15px 30px; 
+                       text-decoration: none; border-radius: 5px; display: inline-block;">
+               Verify Email Address
+             </a>
+           </div>
+           
+           <p style="color: #666; font-size: 14px;">
+             Or copy and paste this link in your browser:<br>
+             <a href="${verificationUrl}" style="color: #D4A373;">${verificationUrl}</a>
+           </p>
+           
+           <p style="color: #666; font-size: 14px; margin-top: 30px;">
+             This link will expire in 24 hours. If you didn't create an account with 
+             Kara Boutique, please ignore this email.
+           </p>
+         </div>
+         
+         <div style="background-color: #333; padding: 20px; text-align: center; color: white; font-size: 12px;">
+           <p>© 2024 Kara Boutique. All rights reserved.</p>
+         </div>
+       </div>
+     `;
+ 
+-    await EmailService.sendEmail({
+-      to: email,
+-      subject: 'Verify Your Email - Kara Boutique',
+-      html: emailContent,
+-    });
++    await EmailService.sendEmail(
++      email,
++      'Verify Your Email - Kara Boutique',
++      emailContent
++    );
+   }
+ 
+   /**
+    * Verify email token
+    */
+   static async verifyToken(token: string): Promise<{ success: boolean; userId?: string }> {
+     const result = await query(
+       `SELECT user_id, expires_at FROM email_verification_tokens 
+        WHERE token = $1`,
+       [token]
+     );
+ 
+     if (result.rows.length === 0) {
+       throw new AppError('Invalid verification token', 400, 'INVALID_TOKEN');
+     }
+ 
+     const { user_id, expires_at } = result.rows[0];
+ 
+     if (new Date() > new Date(expires_at)) {
+       throw new AppError('Verification token has expired', 400, 'TOKEN_EXPIRED');
+     }
+ 
+     // Mark user as verified
+     await query(
+       `UPDATE users SET is_verified = true WHERE id = $1`,
