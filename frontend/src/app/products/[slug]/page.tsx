@@ -15,10 +15,11 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { FiHeart, FiShoppingCart } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import { resolveImageUrl } from '@/lib/image';
 
 export default function ProductDetailPage() {
   const params = useParams();
-  const slug = params.slug as string;
+  const productIdentifier = params.slug as string;
   const [product, setProduct] = useState<any>(null);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
   const [quantity, setQuantity] = useState(1);
@@ -31,21 +32,34 @@ export default function ProductDetailPage() {
   const { isAuthenticated } = useAuth();
   const router = useRouter();
 
+  const productImages = Array.isArray(product?.images) ? product.images : [];
+  const productVariants = Array.isArray(product?.variants) ? product.variants : [];
+  const productSizeChart = Array.isArray(product?.size_chart) ? product.size_chart : [];
+
   useEffect(() => {
     fetchProduct();
-  }, [slug]);
+  }, [productIdentifier]);
 
   const fetchProduct = async () => {
     try {
-      const response = await api.get(endpoints.products.getBySlug(slug));
-      const productData = response.data.data;
-      setProduct(productData);
-      
-      // Select first available variant
-      if (productData.variants && productData.variants.length > 0) {
-        setSelectedVariant(productData.variants[0]);
+      let productData: any = null;
+
+      try {
+        const response = await api.get(endpoints.products.getBySlug(productIdentifier));
+        productData = response.data.data;
+      } catch (slugError) {
+        const fallbackResponse = await api.get(endpoints.products.getById(productIdentifier));
+        productData = fallbackResponse.data.data;
       }
-      
+
+      setProduct(productData);
+
+      // Select first available variant
+      const variants = Array.isArray(productData?.variants) ? productData.variants : [];
+      if (variants.length > 0) {
+        setSelectedVariant(variants[0]);
+      }
+
       // Fetch reviews
       fetchReviews(productData.id);
     } catch (error) {
@@ -101,9 +115,11 @@ export default function ProductDetailPage() {
   if (loading) return <><Header /><Loading /><Footer /></>;
   if (!product) return <><Header /><div className="container py-5"><h3>Product not found</h3></div><Footer /></>;
 
-  const price = product.discount_price || product.base_price;
-  const discount = product.discount_price 
-    ? Math.round(((product.base_price - product.discount_price) / product.base_price) * 100)
+  const basePrice = Number(product?.base_price || 0);
+  const discountPrice = Number(product?.discount_price || 0);
+  const price = discountPrice > 0 ? discountPrice : basePrice;
+  const discount = discountPrice > 0 && basePrice > 0
+    ? Math.round(((basePrice - discountPrice) / basePrice) * 100)
     : 0;
 
   const inWishlist = isInWishlist(product.id);
@@ -119,7 +135,7 @@ export default function ProductDetailPage() {
             <div className="col-lg-6 mb-4">
               <div className="card">
                 <Image
-                  src={product.images?.[0]?.image_url || '/placeholder.jpg'}
+                  src={resolveImageUrl(productImages[0]?.image_url)}
                   alt={product.name}
                   width={600}
                   height={800}
@@ -129,12 +145,12 @@ export default function ProductDetailPage() {
               </div>
               
               {/* Thumbnail Images */}
-              {product.images && product.images.length > 1 && (
+              {productImages.length > 1 && (
                 <div className="d-flex gap-2 mt-3">
-                  {product.images.slice(0, 4).map((img: any, index: number) => (
+                  {productImages.slice(0, 4).map((img: any, index: number) => (
                     <div key={index} className="border rounded" style={{ width: '80px', height: '100px', overflow: 'hidden' }}>
                       <Image
-                        src={img.image_url}
+                        src={resolveImageUrl(img.image_url)}
                         alt={`${product.name} ${index + 1}`}
                         width={80}
                         height={100}
@@ -159,7 +175,7 @@ export default function ProductDetailPage() {
                   {discount > 0 && (
                     <>
                       <span className="h4 text-muted text-decoration-line-through">
-                        ₹{product.base_price.toLocaleString('en-IN')}
+                        ₹{basePrice.toLocaleString('en-IN')}
                       </span>
                       <span className="badge bg-success">{discount}% OFF</span>
                     </>
@@ -177,12 +193,12 @@ export default function ProductDetailPage() {
               )}
 
               {/* Size Selection */}
-              {product.variants && product.variants.length > 0 && (
+              {productVariants.length > 0 && (
                 <div className="mb-4">
                   <h6 className="mb-2">Select Size</h6>
                   <div className="d-flex gap-2 flex-wrap">
-                    {Array.from(new Set(product.variants.map((v: any) => v.size))).map((size: any) => {
-                      const variant = product.variants.find((v: any) => v.size === size);
+                    {Array.from(new Set(productVariants.map((v: any) => v.size))).map((size: any) => {
+                      const variant = productVariants.find((v: any) => v.size === size);
                       const isSelected = selectedVariant?.size === size;
                       const isAvailable = variant && (variant.stock_quantity - variant.reserved_quantity) > 0;
 
@@ -202,12 +218,12 @@ export default function ProductDetailPage() {
               )}
 
               {/* Color Selection */}
-              {product.variants && product.variants.length > 0 && (
+              {productVariants.length > 0 && (
                 <div className="mb-4">
                   <h6 className="mb-2">Select Color</h6>
                   <div className="d-flex gap-2 flex-wrap">
-                    {Array.from(new Set(product.variants.map((v: any) => v.color))).map((color: any) => {
-                      const variant = product.variants.find((v: any) => v.color === color && v.size === selectedVariant?.size);
+                    {Array.from(new Set(productVariants.map((v: any) => v.color))).map((color: any) => {
+                      const variant = productVariants.find((v: any) => v.color === color && v.size === selectedVariant?.size);
                       const isSelected = selectedVariant?.color === color;
 
                       return variant && (
@@ -307,7 +323,7 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Size Chart */}
-          {product.size_chart && product.size_chart.length > 0 && (
+          {productSizeChart.length > 0 && (
             <div className="row mt-5">
               <div className="col-12">
                 <h4 className="mb-4">Size Chart</h4>
@@ -323,7 +339,7 @@ export default function ProductDetailPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {product.size_chart.map((size: any) => (
+                      {productSizeChart.map((size: any) => (
                         <tr key={size.size}>
                           <td><strong>{size.size}</strong></td>
                           <td>{size.bust}</td>

@@ -11,6 +11,7 @@ import StockTimer from '@/components/checkout/StockTimer';
 import CouponInput from '@/components/cart/CouponInput';
 import toast from 'react-hot-toast';
 import Script from 'next/script';
+import { resolveImageUrl } from '@/lib/image';
 
 declare global {
   interface Window {
@@ -33,6 +34,7 @@ export default function CheckoutPage() {
   const [couponCode, setCouponCode] = useState('');
   const [discount, setDiscount] = useState(0);
   const [freeShipping, setFreeShipping] = useState(false);
+  const [storefrontSettings, setStorefrontSettings] = useState<any>({ cod_default_enabled: false, cod_enabled_pincodes: [] });
 
   const actualShippingCharge = (subtotal >= 1499 || freeShipping) ? 0 : 49;
   const finalTotal = subtotal - discount + actualShippingCharge;
@@ -61,6 +63,7 @@ export default function CheckoutPage() {
     }
 
     fetchAddresses();
+    fetchStorefrontSettings();
     setReservedAt(new Date());
   }, [isAuthenticated, items]);
 
@@ -82,12 +85,22 @@ export default function CheckoutPage() {
     }
   };
 
+
+  const fetchStorefrontSettings = async () => {
+    try {
+      const response = await api.get('/admin/settings/public');
+      setStorefrontSettings(response.data?.data || { cod_default_enabled: false, cod_enabled_pincodes: [] });
+    } catch {
+      setStorefrontSettings({ cod_default_enabled: false, cod_enabled_pincodes: [] });
+    }
+  };
+
   const handleReservationExpired = () => {
     toast.error('Stock reservation expired. Please add items to cart again.');
     router.push('/cart');
   };
 
-  const initiateRazorpayPayment = async (orderId: string, amount: number) => {
+  const initiateRazorpayPayment = async (orderId: string, amount: number, appOrderId: string) => {
     const options = {
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
       amount: amount * 100, // Amount in paise
@@ -106,7 +119,7 @@ export default function CheckoutPage() {
 
           toast.success('Payment successful!');
           clearCart();
-          router.push(`/orders/${response.razorpay_order_id}`);
+          router.push(`/orders/${appOrderId}`);
         } catch (error) {
           toast.error('Payment verification failed');
         }
@@ -124,9 +137,22 @@ export default function CheckoutPage() {
     razorpay.open();
   };
 
+
+  const selectedAddressData = addresses.find((addr) => addr.id === selectedAddress);
+  const selectedPincode = String(selectedAddressData?.pincode || '');
+  const codEnabledPincodes = Array.isArray(storefrontSettings?.cod_enabled_pincodes)
+    ? storefrontSettings.cod_enabled_pincodes
+    : [];
+  const codAvailable = Boolean(storefrontSettings?.cod_default_enabled) || codEnabledPincodes.includes(selectedPincode);
+
   const handlePlaceOrder = async () => {
     if (!selectedAddress) {
       toast.error('Please select a delivery address');
+      return;
+    }
+
+    if (paymentMethod === 'cod' && !codAvailable) {
+      toast.error('COD is not available for the selected address');
       return;
     }
 
@@ -145,7 +171,7 @@ export default function CheckoutPage() {
 
       if (paymentMethod === 'razorpay' || paymentMethod === 'card' || paymentMethod === 'upi') {
         // Initiate Razorpay payment
-        initiateRazorpayPayment(razorpay_order.id, order.final_amount);
+        initiateRazorpayPayment(razorpay_order.id, order.final_amount, order.id);
       } else if (paymentMethod === 'cod') {
         // COD order created
         toast.success('Order placed successfully!');
@@ -273,10 +299,13 @@ export default function CheckoutPage() {
                         value="cod"
                         checked={paymentMethod === 'cod'}
                         onChange={(e) => setPaymentMethod(e.target.value)}
+                        disabled={!codAvailable}
                       />
                       <label className="form-check-label" htmlFor="cod">
                         <strong>Cash on Delivery (COD)</strong>
-                        <small className="d-block text-muted">Pay when you receive the order</small>
+                        <small className="d-block text-muted">
+                          {codAvailable ? 'Pay when you receive the order' : 'COD unavailable for selected address'}
+                        </small>
                       </label>
                     </div>
                   </div>
@@ -292,7 +321,7 @@ export default function CheckoutPage() {
                   {items.map((item: any) => (
                     <div key={item.id} className="d-flex align-items-center mb-3 pb-3 border-bottom">
                       <img
-                        src={item.product_image || '/placeholder.jpg'}
+                        src={resolveImageUrl(item.product_image)}
                         alt={item.product_name}
                         width={60}
                         height={80}
