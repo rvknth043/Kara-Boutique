@@ -1,0 +1,112 @@
+diff a/frontend/src/components/layout/Header.tsx b/frontend/src/components/layout/Header.tsx	(rejected hunks)
+@@ -1,42 +1,64 @@
+ 'use client';
+ 
+ import Link from 'next/link';
+ import { useAuth } from '@/context/AuthContext';
+ import { useCart } from '@/context/CartContext';
+ import { useWishlist } from '@/context/WishlistContext';
+ import { FiShoppingCart, FiHeart, FiUser, FiSearch, FiMenu } from 'react-icons/fi';
+-import { useState } from 'react';
++import { useState, useEffect } from 'react';
+ import { useRouter } from 'next/navigation';
++import api, { endpoints } from '@/lib/api';
++
++interface CategoryNavItem {
++  id: string;
++  name: string;
++  slug: string;
++}
+ 
+ export default function Header() {
+   const { user, isAuthenticated, logout } = useAuth();
+   const { itemCount: cartCount } = useCart();
+   const { itemCount: wishlistCount } = useWishlist();
+   const [searchQuery, setSearchQuery] = useState('');
++  const [categories, setCategories] = useState<CategoryNavItem[]>([]);
+   const router = useRouter();
+ 
++  useEffect(() => {
++    const fetchCategories = async () => {
++      try {
++        const response = await api.get(endpoints.categories.getAll);
++        const categoryData = Array.isArray(response.data.data) ? response.data.data : [];
++        setCategories(categoryData.slice(0, 6));
++      } catch (error) {
++        console.error('Failed to fetch categories for navigation:', error);
++      }
++    };
++
++    fetchCategories();
++  }, []);
++
+   const handleSearch = (e: React.FormEvent) => {
+     e.preventDefault();
+     if (searchQuery.trim()) {
+       router.push(`/products?search=${encodeURIComponent(searchQuery)}`);
+     }
+   };
+ 
+   return (
+     <header>
+       {/* Top Bar */}
+       <div className="bg-dark text-white py-2">
+         <div className="container">
+           <div className="row">
+             <div className="col-md-6">
+               <small>Free shipping on orders above ₹1,499</small>
+             </div>
+             <div className="col-md-6 text-md-end">
+               <small>Customer Care: +91 9876543210</small>
+             </div>
+           </div>
+         </div>
+       </div>
+ 
+       {/* Main Navigation */}
+       <nav className="navbar navbar-expand-lg navbar-light bg-white">
+@@ -122,35 +144,40 @@ export default function Header() {
+                           <Link href="/admin" className="dropdown-item">Admin Dashboard</Link>
+                         </li>
+                       </>
+                     )}
+                     <li><hr className="dropdown-divider" /></li>
+                     <li>
+                       <button onClick={logout} className="dropdown-item">Logout</button>
+                     </li>
+                   </ul>
+                 </div>
+               ) : (
+                 <Link href="/login" className="btn btn-primary btn-sm">
+                   Login
+                 </Link>
+               )}
+             </div>
+           </div>
+         </div>
+       </nav>
+ 
+       {/* Category Navigation */}
+       <div className="bg-light py-2">
+         <div className="container">
+           <nav className="d-flex justify-content-center gap-4 flex-wrap">
+             <Link href="/products" className="text-dark text-decoration-none">All Products</Link>
+-            <Link href="/products/category/kurthi" className="text-dark text-decoration-none">Kurthi</Link>
+-            <Link href="/products/category/sarees" className="text-dark text-decoration-none">Sarees</Link>
+-            <Link href="/products/category/suits" className="text-dark text-decoration-none">Suits</Link>
+-            <Link href="/products/category/dresses" className="text-dark text-decoration-none">Dresses</Link>
++            {categories.map((category) => (
++              <Link
++                key={category.id}
++                href={`/products/category/${encodeURIComponent(category.slug)}`}
++                className="text-dark text-decoration-none"
++              >
++                {category.name}
++              </Link>
++            ))}
+           </nav>
+         </div>
+       </div>
+     </header>
+   );
+ }
