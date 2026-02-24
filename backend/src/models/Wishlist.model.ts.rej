@@ -1,0 +1,118 @@
+diff a/backend/src/models/Wishlist.model.ts b/backend/src/models/Wishlist.model.ts	(rejected hunks)
+@@ -1,95 +1,116 @@
+ import { query } from '../config/database';
+ 
+ export interface WishlistItem {
+   id: string;
+   user_id: string;
+   product_id: string;
+   added_at: Date;
+ }
+ 
+ export interface WishlistItemWithDetails extends WishlistItem {
+   product_name: string;
+   product_slug: string;
+   product_base_price: number;
+   product_discount_price?: number;
+   product_image?: string;
++  variant_id?: string;
++  variant_size?: string;
++  variant_color?: string;
++  variant_price?: number;
++  base_price?: number;
++  stock_quantity?: number;
+   is_active: boolean;
+   is_in_stock: boolean;
+   category_name: string;
+ }
+ 
+ export class WishlistModel {
+   /**
+    * Add product to wishlist
+    */
+   static async addItem(userId: string, productId: string): Promise<WishlistItem> {
+     // Check if already exists
+     const existingSql = `
+       SELECT * FROM wishlist 
+       WHERE user_id = $1 AND product_id = $2
+     `;
+     const existing = await query(existingSql, [userId, productId]);
+     
+     if (existing.rows.length > 0) {
+       return existing.rows[0];
+     }
+     
+     // Add new item
+     const insertSql = `
+       INSERT INTO wishlist (user_id, product_id)
+       VALUES ($1, $2)
+       RETURNING *
+     `;
+     const result = await query(insertSql, [userId, productId]);
+     return result.rows[0];
+   }
+   
+   /**
+    * Get user's wishlist with product details
+    */
+   static async getUserWishlist(userId: string): Promise<WishlistItemWithDetails[]> {
+     const sql = `
+       SELECT 
+         w.*,
+         p.name as product_name,
+         p.slug as product_slug,
+         p.base_price as product_base_price,
+         p.discount_price as product_discount_price,
+         p.is_active,
+         c.name as category_name,
+         pi.image_url as product_image,
++        v.variant_id,
++        v.variant_size,
++        v.variant_color,
++        v.variant_price,
++        v.base_price,
++        v.stock_quantity,
+         EXISTS(
+           SELECT 1 FROM product_variants pv 
+           WHERE pv.product_id = p.id 
+             AND pv.is_active = true 
+             AND (pv.stock_quantity - pv.reserved_quantity) > 0
+         ) as is_in_stock
+       FROM wishlist w
+       JOIN products p ON w.product_id = p.id
+       JOIN categories c ON p.category_id = c.id
+       LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_primary = true
++      LEFT JOIN LATERAL (
++        SELECT pv.id as variant_id, pv.size as variant_size, pv.color as variant_color,
++               p.discount_price as variant_price, p.base_price as base_price,
++               (pv.stock_quantity - pv.reserved_quantity) as stock_quantity
++        FROM product_variants pv
++        WHERE pv.product_id = p.id AND pv.is_active = true
++        ORDER BY (pv.stock_quantity - pv.reserved_quantity) DESC, pv.created_at ASC
++        LIMIT 1
++      ) v ON true
+       WHERE w.user_id = $1
+       ORDER BY w.added_at DESC
+     `;
+     
+     const result = await query(sql, [userId]);
+     return result.rows;
+   }
+   
+   /**
+    * Remove item from wishlist
+    */
+   static async removeItem(userId: string, productId: string): Promise<boolean> {
+     const sql = `
+       DELETE FROM wishlist 
+       WHERE user_id = $1 AND product_id = $2
+     `;
+     const result = await query(sql, [userId, productId]);
+     return (result.rowCount ?? 0) > 0;
+   }
+   
+   /**
+    * Remove item by wishlist ID
+    */
+   static async removeById(itemId: string, userId: string): Promise<boolean> {
+     const sql = `
