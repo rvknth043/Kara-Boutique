@@ -148,7 +148,7 @@ export default function AdminOrderDetailsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {order.items?.map((item: any) => (
+                    {(Array.isArray(order.items) ? order.items : []).map((item: any) => (
                       <tr key={item.id}>
                         <td>
                           <div className="d-flex align-items-center gap-2">
@@ -216,10 +216,10 @@ export default function AdminOrderDetailsPage() {
                   disabled={updating}
                 >
                   <option value="placed">Placed</option>
-                  <option value="processing">Processing</option>
-                  <option value="shipped">Shipped</option>
+                                    <option value="shipped">Shipped</option>
                   <option value="delivered">Delivered</option>
                   <option value="cancelled">Cancelled</option>
+                  <option value="returned">Returned</option>
                 </select>
               </div>
 

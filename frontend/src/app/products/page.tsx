@@ -57,9 +57,6 @@ function ProductsContent() {
         params.sort_order = 'DESC';
       }
 
-      if (filters.min_price > PRICE_MIN) params.min_price = filters.min_price;
-      if (filters.max_price < PRICE_MAX) params.max_price = filters.max_price;
-
       if (searchQuery) {
         url = endpoints.products.search;
         params.q = searchQuery;

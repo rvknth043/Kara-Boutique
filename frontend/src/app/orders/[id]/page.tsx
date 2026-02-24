@@ -21,6 +21,7 @@ export default function OrderDetailsPage() {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const [storefrontSettings, setStorefrontSettings] = useState<any>({ allow_returns: true, allow_exchanges: true });
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -28,7 +29,18 @@ export default function OrderDetailsPage() {
       return;
     }
     fetchOrder();
+    fetchStorefrontSettings();
   }, [isAuthenticated, orderId]);
+
+
+  const fetchStorefrontSettings = async () => {
+    try {
+      const response = await api.get('/admin/settings/public');
+      setStorefrontSettings(response.data?.data || { allow_returns: true, allow_exchanges: true });
+    } catch {
+      setStorefrontSettings({ allow_returns: true, allow_exchanges: true });
+    }
+  };
 
   const fetchOrder = async () => {
     try {
@@ -69,8 +81,8 @@ export default function OrderDetailsPage() {
     ? (Date.now() - deliveredDate.getTime()) / (1000 * 60 * 60 * 24)
     : null;
 
-  const returnEligible = canReturn && daysSinceDelivery && daysSinceDelivery <= 7;
-  const exchangeEligible = canExchange && daysSinceDelivery && daysSinceDelivery <= 7;
+  const returnEligible = Boolean(storefrontSettings.allow_returns) && canReturn && daysSinceDelivery && daysSinceDelivery <= 7;
+  const exchangeEligible = Boolean(storefrontSettings.allow_exchanges) && canExchange && daysSinceDelivery && daysSinceDelivery <= 7;
 
   return (
     <>

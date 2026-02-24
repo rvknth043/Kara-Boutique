@@ -13,6 +13,7 @@ import {
   FiBarChart2,
   FiRepeat,
   FiTag,
+  FiSettings,
   FiLogOut
 } from 'react-icons/fi';
 
@@ -52,6 +53,7 @@ export default function AdminLayout({
     { href: '/admin/exchanges', label: 'Exchanges', icon: FiRepeat },
     { href: '/admin/coupons', label: 'Coupons', icon: FiTag },
     { href: '/admin/analytics', label: 'Analytics', icon: FiBarChart2 },
+    { href: '/admin/settings', label: 'Settings', icon: FiSettings },
   ];
 
   return (
