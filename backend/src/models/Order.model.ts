@@ -207,59 +207,68 @@ export class OrderModel {
     limit: number = 20
   ): Promise<{ orders: Order[]; total: number }> {
     const offset = (page - 1) * limit;
-    
+
     const whereClauses: string[] = [];
     const values: any[] = [];
     let paramCount = 1;
-    
+
     if (filters.payment_status) {
-      whereClauses.push(`payment_status = $${paramCount++}`);
+      whereClauses.push(`o.payment_status = $${paramCount++}`);
       values.push(filters.payment_status);
     }
-    
+
     if (filters.order_status) {
-      whereClauses.push(`order_status = $${paramCount++}`);
+      whereClauses.push(`o.order_status = $${paramCount++}`);
       values.push(filters.order_status);
     }
-    
+
     if (filters.date_from) {
-      whereClauses.push(`created_at >= $${paramCount++}`);
+      whereClauses.push(`o.created_at >= $${paramCount++}`);
       values.push(filters.date_from);
     }
-    
+
     if (filters.date_to) {
-      whereClauses.push(`created_at <= $${paramCount++}`);
+      whereClauses.push(`o.created_at <= $${paramCount++}`);
       values.push(filters.date_to);
     }
-    
-    const whereClause = whereClauses.length > 0 
-      ? `WHERE ${whereClauses.join(' AND ')}` 
+
+    const whereClause = whereClauses.length > 0
+      ? `WHERE ${whereClauses.join(' AND ')}`
       : '';
-    
+
     const sql = `
-      SELECT * FROM orders 
+      SELECT
+        o.*, 
+        u.full_name as user_name,
+        u.email as user_email,
+        u.phone as user_phone,
+        COUNT(oi.id)::int as item_count
+      FROM orders o
+      JOIN users u ON o.user_id = u.id
+      LEFT JOIN order_items oi ON o.id = oi.order_id
       ${whereClause}
-      ORDER BY created_at DESC
+      GROUP BY o.id, u.id
+      ORDER BY o.created_at DESC
       LIMIT $${paramCount++} OFFSET $${paramCount++}
     `;
-    
+
     const countSql = `
-      SELECT COUNT(*) as total 
-      FROM orders 
+      SELECT COUNT(*) as total
+      FROM orders o
       ${whereClause}
     `;
-    
+
     const [ordersResult, countResult] = await Promise.all([
       query(sql, [...values, limit, offset]),
       query(countSql, values),
     ]);
-    
+
     return {
       orders: ordersResult.rows,
       total: parseInt(countResult.rows[0].total),
     };
   }
-  
+
   /**
    * Update order
    */

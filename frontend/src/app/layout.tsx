@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import { AuthProvider } from '@/context/AuthContext';
 import { CartProvider } from '@/context/CartContext';
 import { WishlistProvider } from '@/context/WishlistContext';
@@ -7,8 +6,6 @@ import { Toaster } from 'react-hot-toast';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './globals.scss';
 import Script from 'next/script';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Kara Boutique - Ethnic & Contemporary Fashion',
@@ -25,7 +22,7 @@ export default function RootLayout({
       <head>
         <Script src="https://checkout.razorpay.com/v1/checkout.js" />
       </head>
-      <body className={inter.className}>
+      <body>
         <AuthProvider>
           <CartProvider>
             <WishlistProvider>
@@ -33,10 +30,26 @@ export default function RootLayout({
               <Toaster 
                 position="top-right"
                 toastOptions={{
-                  duration: 3000,
+                  duration: 3200,
                   style: {
-                    background: '#333',
-                    color: '#fff',
+                    background: '#ffffff',
+                    color: '#1f2937',
+                    border: '1px solid #e6d5c3',
+                    borderRadius: '12px',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+                    fontSize: '14px',
+                  },
+                  success: {
+                    iconTheme: {
+                      primary: '#16a34a',
+                      secondary: '#ffffff',
+                    },
+                  },
+                  error: {
+                    iconTheme: {
+                      primary: '#dc2626',
+                      secondary: '#ffffff',
+                    },
                   },
                 }}
               />

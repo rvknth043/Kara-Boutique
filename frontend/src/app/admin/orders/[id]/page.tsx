@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
+import { resolveImageUrl } from '@/lib/image';
 
 export default function AdminOrderDetailsPage() {
   const { isAdmin } = useAuth();
@@ -147,12 +148,12 @@ export default function AdminOrderDetailsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {order.items?.map((item: any) => (
+                    {(Array.isArray(order.items) ? order.items : []).map((item: any) => (
                       <tr key={item.id}>
                         <td>
                           <div className="d-flex align-items-center gap-2">
                             <Image
-                              src={item.product_image || '/placeholder.jpg'}
+                              src={resolveImageUrl(item.product_image)}
                               alt={item.product_name}
                               width={50}
                               height={60}
@@ -215,10 +216,10 @@ export default function AdminOrderDetailsPage() {
                   disabled={updating}
                 >
                   <option value="placed">Placed</option>
-                  <option value="processing">Processing</option>
-                  <option value="shipped">Shipped</option>
+                                    <option value="shipped">Shipped</option>
                   <option value="delivered">Delivered</option>
                   <option value="cancelled">Cancelled</option>
+                  <option value="returned">Returned</option>
                 </select>
               </div>
 

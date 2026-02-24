@@ -4,6 +4,7 @@ import ProductVariantModel from '../models/ProductVariant.model';
 import { AppError } from '../middleware/errorHandler';
 import { OrderStatus, PaymentStatus } from '../types/shared.types';
 import { transaction } from '../config/database';
+import StorefrontSettingsService from './storefrontSettings.service';
 
 export class OrderService {
   /**
@@ -174,6 +175,11 @@ export class OrderService {
    * Request return
    */
   static async requestReturn(orderId: string, userId: string, reason: string) {
+    const settings = await StorefrontSettingsService.getSettings();
+    if (!settings.allow_returns) {
+      throw new AppError('Returns are currently disabled by the store', 400, 'RETURNS_DISABLED');
+    }
+
     const order = await OrderModel.findById(orderId);
     
     if (!order) {
