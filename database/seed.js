@@ -155,8 +155,10 @@ async function seedCoupons(client) {
       case 'discount_type':
         return coupon.type === 'free_shipping' ? 'fixed' : coupon.type;
       case 'value':
-      case 'discount_value':
         return coupon.value;
+      case 'discount_value':
+        // Legacy schema enforces discount_value > 0 even when modern type is free_shipping.
+        return coupon.type === 'free_shipping' ? 1 : coupon.value;
       case 'min_order_value':
         return coupon.min_order_value;
       case 'max_discount':
