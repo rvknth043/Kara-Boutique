@@ -20,10 +20,10 @@ CREATE TABLE IF NOT EXISTS exchanges (
 );
 
 -- Create indexes for performance
-CREATE INDEX idx_exchanges_order_id ON exchanges(order_id);
-CREATE INDEX idx_exchanges_user_id ON exchanges(user_id);
-CREATE INDEX idx_exchanges_status ON exchanges(status);
-CREATE INDEX idx_exchanges_created_at ON exchanges(created_at);
+CREATE INDEX IF NOT EXISTS idx_exchanges_order_id ON exchanges(order_id);
+CREATE INDEX IF NOT EXISTS idx_exchanges_user_id ON exchanges(user_id);
+CREATE INDEX IF NOT EXISTS idx_exchanges_status ON exchanges(status);
+CREATE INDEX IF NOT EXISTS idx_exchanges_created_at ON exchanges(created_at);
 
 -- Create trigger for updated_at
 CREATE OR REPLACE FUNCTION update_exchanges_updated_at()
@@ -34,13 +34,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_exchanges_updated_at ON exchanges;
 CREATE TRIGGER trigger_update_exchanges_updated_at
     BEFORE UPDATE ON exchanges
     FOR EACH ROW
     EXECUTE FUNCTION update_exchanges_updated_at();
 
 -- Add constraint: Only one active exchange per order
-CREATE UNIQUE INDEX idx_exchanges_unique_active_order
+CREATE UNIQUE INDEX IF NOT EXISTS idx_exchanges_unique_active_order
     ON exchanges (order_id)
     WHERE status NOT IN ('rejected', 'cancelled', 'completed');
 
@@ -49,10 +50,6 @@ COMMENT ON TABLE exchanges IS '7-day exchange policy: Customer can exchange prod
 COMMENT ON COLUMN exchanges.reason IS 'Reason for exchange: size_issue, color_difference, defective, wrong_item, other';
 COMMENT ON COLUMN exchanges.status IS 'Exchange status: requested, approved, rejected, picked_up, completed, cancelled';
 COMMENT ON COLUMN exchanges.exchange_variant_id IS 'Optional: ID of the variant customer wants to exchange to';
-
--- Grant permissions
-GRANT SELECT, INSERT, UPDATE ON exchanges TO kara_admin;
-GRANT USAGE, SELECT ON SEQUENCE exchanges_id_seq TO kara_admin;
 
 -- Insert sample data for testing (optional)
 -- INSERT INTO exchanges (order_id, user_id, reason, reason_details, status)
@@ -64,14 +61,3 @@ GRANT USAGE, SELECT ON SEQUENCE exchanges_id_seq TO kara_admin;
 --     'requested'
 -- );
 
--- Verify table created
-SELECT 
-    table_name, 
-    column_name, 
-    data_type,
-    is_nullable
-FROM information_schema.columns
-WHERE table_name = 'exchanges'
-ORDER BY ordinal_position;
-
-PRINT 'Migration 003: Exchanges table created successfully';

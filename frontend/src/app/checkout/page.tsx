@@ -87,7 +87,7 @@ export default function CheckoutPage() {
     router.push('/cart');
   };
 
-  const initiateRazorpayPayment = async (orderId: string, amount: number) => {
+  const initiateRazorpayPayment = async (orderId: string, amount: number, appOrderId: string) => {
     const options = {
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
       amount: amount * 100, // Amount in paise
@@ -106,7 +106,7 @@ export default function CheckoutPage() {
 
           toast.success('Payment successful!');
           clearCart();
-          router.push(`/orders/${response.razorpay_order_id}`);
+          router.push(`/orders/${appOrderId}`);
         } catch (error) {
           toast.error('Payment verification failed');
         }
@@ -145,7 +145,7 @@ export default function CheckoutPage() {
 
       if (paymentMethod === 'razorpay' || paymentMethod === 'card' || paymentMethod === 'upi') {
         // Initiate Razorpay payment
-        initiateRazorpayPayment(razorpay_order.id, order.final_amount);
+        initiateRazorpayPayment(razorpay_order.id, order.final_amount, order.id);
       } else if (paymentMethod === 'cod') {
         // COD order created
         toast.success('Order placed successfully!');

@@ -47,6 +47,7 @@ export default function AdminLayout({
     { href: '/admin', label: 'Dashboard', icon: FiHome },
     { href: '/admin/orders', label: 'Orders', icon: FiShoppingBag },
     { href: '/admin/products', label: 'Products', icon: FiPackage },
+    { href: '/admin/inventory', label: 'Inventory', icon: FiPackage },
     { href: '/admin/customers', label: 'Customers', icon: FiUsers },
     { href: '/admin/exchanges', label: 'Exchanges', icon: FiRepeat },
     { href: '/admin/coupons', label: 'Coupons', icon: FiTag },
