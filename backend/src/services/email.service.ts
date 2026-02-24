@@ -19,7 +19,7 @@ export class EmailService {
   /**
    * Send email
    */
-  private static async sendEmail(
+  static async sendEmail(
     to: string,
     subject: string,
     htmlBody: string,
