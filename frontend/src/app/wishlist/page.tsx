@@ -11,10 +11,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import Loading from '@/components/common/Loading';
+import { resolveImageUrl } from '@/lib/image';
 
 export default function WishlistPage() {
   const { isAuthenticated } = useAuth();
-  const { addItem } = useCart();
+  const { addToCart } = useCart();
   const router = useRouter();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,9 +40,9 @@ export default function WishlistPage() {
     }
   };
 
-  const handleRemove = async (itemId: string) => {
+  const handleRemove = async (productId: string) => {
     try {
-      await api.delete(`/wishlist/${itemId}`);
+      await api.delete(`/wishlist/remove/${productId}`);
       toast.success('Removed from wishlist');
       fetchWishlist();
     } catch (error: any) {
@@ -52,13 +53,15 @@ export default function WishlistPage() {
   const handleMoveToCart = async (item: any) => {
     try {
       // Add to cart
-      await api.post('/cart', {
-        product_variant_id: item.variant_id,
-        quantity: 1,
-      });
+      if (!item.variant_id) {
+        toast.error('No purchasable variant available for this product');
+        return;
+      }
+
+      await addToCart(item.variant_id, 1);
 
       // Remove from wishlist
-      await api.delete(`/wishlist/${item.id}`);
+      await api.delete(`/wishlist/remove/${item.product_id}`);
       
       toast.success('Moved to cart!');
       fetchWishlist();
@@ -100,9 +103,9 @@ export default function WishlistPage() {
                 <div key={item.id} className="col-md-6 col-lg-4">
                   <div className="card h-100">
                     <div className="position-relative">
-                      <Link href={`/products/${item.product_slug}`}>
+                      <Link href={`/products/${item.product_slug || item.product_id}`}>
                         <Image
-                          src={item.product_image || '/placeholder.jpg'}
+                          src={resolveImageUrl(item.product_image)}
                           alt={item.product_name}
                           width={400}
                           height={500}
@@ -111,7 +114,7 @@ export default function WishlistPage() {
                         />
                       </Link>
                       <button
-                        onClick={() => handleRemove(item.id)}
+                        onClick={() => handleRemove(item.product_id)}
                         className="btn btn-sm btn-light position-absolute top-0 end-0 m-2"
                         style={{ borderRadius: '50%', width: '36px', height: '36px' }}
                       >
@@ -121,7 +124,7 @@ export default function WishlistPage() {
                     
                     <div className="card-body">
                       <Link 
-                        href={`/products/${item.product_slug}`}
+                        href={`/products/${item.product_slug || item.product_id}`}
                         className="text-decoration-none text-dark"
                       >
                         <h6 className="card-title mb-2">{item.product_name}</h6>

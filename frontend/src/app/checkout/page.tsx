@@ -11,6 +11,7 @@ import StockTimer from '@/components/checkout/StockTimer';
 import CouponInput from '@/components/cart/CouponInput';
 import toast from 'react-hot-toast';
 import Script from 'next/script';
+import { resolveImageUrl } from '@/lib/image';
 
 declare global {
   interface Window {
@@ -87,7 +88,7 @@ export default function CheckoutPage() {
     router.push('/cart');
   };
 
-  const initiateRazorpayPayment = async (orderId: string, amount: number) => {
+  const initiateRazorpayPayment = async (orderId: string, amount: number, appOrderId: string) => {
     const options = {
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
       amount: amount * 100, // Amount in paise
@@ -106,7 +107,7 @@ export default function CheckoutPage() {
 
           toast.success('Payment successful!');
           clearCart();
-          router.push(`/orders/${response.razorpay_order_id}`);
+          router.push(`/orders/${appOrderId}`);
         } catch (error) {
           toast.error('Payment verification failed');
         }
@@ -145,7 +146,7 @@ export default function CheckoutPage() {
 
       if (paymentMethod === 'razorpay' || paymentMethod === 'card' || paymentMethod === 'upi') {
         // Initiate Razorpay payment
-        initiateRazorpayPayment(razorpay_order.id, order.final_amount);
+        initiateRazorpayPayment(razorpay_order.id, order.final_amount, order.id);
       } else if (paymentMethod === 'cod') {
         // COD order created
         toast.success('Order placed successfully!');
@@ -292,7 +293,7 @@ export default function CheckoutPage() {
                   {items.map((item: any) => (
                     <div key={item.id} className="d-flex align-items-center mb-3 pb-3 border-bottom">
                       <img
-                        src={item.product_image || '/placeholder.jpg'}
+                        src={resolveImageUrl(item.product_image)}
                         alt={item.product_name}
                         width={60}
                         height={80}

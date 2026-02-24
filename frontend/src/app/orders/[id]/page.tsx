@@ -10,6 +10,7 @@ import Loading from '@/components/common/Loading';
 import Link from 'next/link';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
+import { resolveImageUrl } from '@/lib/image';
 
 export default function OrderDetailsPage() {
   const { isAuthenticated } = useAuth();
@@ -144,7 +145,7 @@ export default function OrderDetailsPage() {
                       <div className="row align-items-center">
                         <div className="col-md-2">
                           <Image
-                            src={item.product_image || '/placeholder.jpg'}
+                            src={resolveImageUrl(item.product_image)}
                             alt={item.product_name}
                             width={80}
                             height={100}
