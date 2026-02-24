@@ -33,7 +33,7 @@ export default function AdminProductsPage() {
 
   const handleToggleActive = async (productId: string, currentStatus: boolean) => {
     try {
-      await api.put(`/products/${productId}/active`, { is_active: !currentStatus });
+      await api.put(`/products/${productId}`, { is_active: !currentStatus });
       toast.success('Product status updated');
       fetchProducts();
     } catch (error: any) {
@@ -43,7 +43,7 @@ export default function AdminProductsPage() {
 
   const handleToggleFeatured = async (productId: string, currentStatus: boolean) => {
     try {
-      await api.put(`/products/${productId}/featured`, { is_featured: !currentStatus });
+      await api.put(`/products/${productId}`, { is_featured: !currentStatus });
       toast.success('Featured status updated');
       fetchProducts();
     } catch (error: any) {
