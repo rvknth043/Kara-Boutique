@@ -1,0 +1,50 @@
+diff a/backend/src/services/email.service.ts b/backend/src/services/email.service.ts	(rejected hunks)
+@@ -1,47 +1,47 @@
+ import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+ import dotenv from 'dotenv';
+ 
+ dotenv.config();
+ 
+ // Initialize SES client
+ const sesClient = new SESClient({
+   region: process.env.AWS_SES_REGION || 'ap-south-1',
+   credentials: {
+     accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+   },
+ });
+ 
+ const FROM_EMAIL = process.env.SES_FROM_EMAIL || 'noreply@karaboutique.com';
+ const FROM_NAME = process.env.SES_FROM_NAME || 'Kara Boutique';
+ 
+ export class EmailService {
+   /**
+    * Send email
+    */
+-  private static async sendEmail(
++  static async sendEmail(
+     to: string,
+     subject: string,
+     htmlBody: string,
+     textBody?: string
+   ) {
+     try {
+       const command = new SendEmailCommand({
+         Source: `${FROM_NAME} <${FROM_EMAIL}>`,
+         Destination: {
+           ToAddresses: [to],
+         },
+         Message: {
+           Subject: {
+             Data: subject,
+             Charset: 'UTF-8',
+           },
+           Body: {
+             Html: {
+               Data: htmlBody,
+               Charset: 'UTF-8',
+             },
+             Text: {
+               Data: textBody || htmlBody.replace(/<[^>]*>/g, ''),
+               Charset: 'UTF-8',
+             },

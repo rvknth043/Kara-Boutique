@@ -1,0 +1,56 @@
+diff a/backend/src/services/invoice.service.ts b/backend/src/services/invoice.service.ts	(rejected hunks)
+@@ -204,52 +204,52 @@ export class InvoiceService {
+     
+     // Footer
+     const footerY = 720;
+     
+     doc
+       .fontSize(8)
+       .fillColor('#666')
+       .text(
+         'Thank you for shopping with Kara Boutique!',
+         50,
+         footerY,
+         { align: 'center', width: 500 }
+       );
+     
+     doc.text(
+       'For any queries, contact us at support@karaboutique.com',
+       50,
+       footerY + 12,
+       { align: 'center', width: 500 }
+     );
+     
+     // Finalize PDF
+     doc.end();
+     
+     // Wait for file to be written
+-    await new Promise((resolve) => {
+-      writeStream.on('finish', resolve);
++    await new Promise<void>((resolve) => {
++      writeStream.on('finish', () => resolve());
+     });
+     
+     return filepath;
+   }
+   
+   /**
+    * Get invoice URL (if stored in cloud)
+    */
+   static async getInvoiceUrl(orderId: string): Promise<string | null> {
+     const order = await OrderModel.findById(orderId);
+     
+     if (!order) {
+       throw new AppError('Order not found', 404, 'ORDER_NOT_FOUND');
+     }
+     
+     return order.invoice_url || null;
+   }
+   
+   /**
+    * Save invoice URL to order
+    */
+   static async saveInvoiceUrl(orderId: string, url: string): Promise<void> {
+     await OrderModel.update(orderId, { invoice_url: url });
+   }
+ }
