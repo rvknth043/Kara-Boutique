@@ -1,5 +1,5 @@
 import rateLimit from 'express-rate-limit';
-import { Request, Response, RequestHandler } from 'express';
+import { RequestHandler } from 'express';
 
 // General API rate limiter
 const baseRateLimiter = rateLimit({
@@ -14,7 +14,7 @@ const baseRateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  handler: (req: Request, res: Response) => {
+  handler: (_req, res) => {
     res.status(429).json({
       success: false,
       error: {
