@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -11,32 +11,51 @@ import api, { endpoints } from '@/lib/api';
 const PRICE_MIN = 0;
 const PRICE_MAX = 30000;
 
+type SortOption = 'new' | 'price_high' | 'popularity' | 'discount' | 'price_low' | 'rating';
+
 function ProductsContent() {
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeThumb, setActiveThumb] = useState<'min' | 'max'>('min');
   const [filters, setFilters] = useState({
     min_price: PRICE_MIN,
     max_price: PRICE_MAX,
-    sort_by: 'created_at',
-    sort_order: 'DESC',
+    sort: 'new' as SortOption,
   });
 
   const searchQuery = searchParams.get('search');
 
   useEffect(() => {
     fetchProducts();
-  }, [searchQuery, filters]);
+  }, [searchQuery, filters.min_price, filters.max_price, filters.sort]);
 
   const fetchProducts = async () => {
     try {
       setLoading(true);
 
       let url = endpoints.products.getAll;
-      const params: Record<string, string | number> = {
-        sort_by: filters.sort_by,
-        sort_order: filters.sort_order,
-      };
+      const params: Record<string, string | number> = {};
+
+      if (filters.min_price > PRICE_MIN) params.min_price = filters.min_price;
+      if (filters.max_price < PRICE_MAX) params.max_price = filters.max_price;
+
+      if (filters.sort === 'new') {
+        params.sort_by = 'created_at';
+        params.sort_order = 'DESC';
+      } else if (filters.sort === 'price_low') {
+        params.sort_by = 'base_price';
+        params.sort_order = 'ASC';
+      } else if (filters.sort === 'price_high') {
+        params.sort_by = 'base_price';
+        params.sort_order = 'DESC';
+      } else if (filters.sort === 'popularity') {
+        params.sort_by = 'view_count';
+        params.sort_order = 'DESC';
+      } else {
+        params.sort_by = 'created_at';
+        params.sort_order = 'DESC';
+      }
 
       if (filters.min_price > PRICE_MIN) params.min_price = filters.min_price;
       if (filters.max_price < PRICE_MAX) params.max_price = filters.max_price;
@@ -48,7 +67,8 @@ function ProductsContent() {
 
       const response = await api.get(url, { params });
       const payload = response.data?.data;
-      setProducts(Array.isArray(payload?.products) ? payload.products : Array.isArray(payload) ? payload : []);
+      const baseProducts = Array.isArray(payload?.products) ? payload.products : Array.isArray(payload) ? payload : [];
+      setProducts(baseProducts);
     } catch (error) {
       console.error('Failed to fetch products:', error);
       setProducts([]);
@@ -57,31 +77,40 @@ function ProductsContent() {
     }
   };
 
-  const handleFilterChange = (key: 'sort_by' | 'sort_order', value: string) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-  };
+  const sortedProducts = useMemo(() => {
+    const list = [...products];
+
+    if (filters.sort === 'discount') {
+      return list.sort((a, b) => {
+        const discountA = a.discount_price ? ((a.base_price - a.discount_price) / a.base_price) * 100 : 0;
+        const discountB = b.discount_price ? ((b.base_price - b.discount_price) / b.base_price) * 100 : 0;
+        return discountB - discountA;
+      });
+    }
+
+    if (filters.sort === 'rating') {
+      return list.sort((a, b) => Number(b.avg_rating || b.average_rating || 0) - Number(a.avg_rating || a.average_rating || 0));
+    }
+
+    return list;
+  }, [products, filters.sort]);
 
   const handleMinSlider = (value: number) => {
     setFilters((prev) => ({
       ...prev,
-      min_price: Math.min(value, prev.max_price - 500),
+      min_price: Math.min(value, prev.max_price - 100),
     }));
   };
 
   const handleMaxSlider = (value: number) => {
     setFilters((prev) => ({
       ...prev,
-      max_price: Math.max(value, prev.min_price + 500),
+      max_price: Math.max(value, prev.min_price + 100),
     }));
   };
 
   const clearFilters = () => {
-    setFilters({
-      min_price: PRICE_MIN,
-      max_price: PRICE_MAX,
-      sort_by: 'created_at',
-      sort_order: 'DESC',
-    });
+    setFilters({ min_price: PRICE_MIN, max_price: PRICE_MAX, sort: 'new' });
   };
 
   return (
@@ -105,8 +134,11 @@ function ProductsContent() {
                         max={PRICE_MAX}
                         step={100}
                         value={filters.min_price}
+                        onMouseDown={() => setActiveThumb('min')}
+                        onTouchStart={() => setActiveThumb('min')}
                         onChange={(e) => handleMinSlider(Number(e.target.value))}
                         className="form-range position-absolute top-0 start-0 w-100"
+                        style={{ zIndex: activeThumb === 'min' ? 5 : 3 }}
                       />
                       <input
                         type="range"
@@ -114,8 +146,11 @@ function ProductsContent() {
                         max={PRICE_MAX}
                         step={100}
                         value={filters.max_price}
+                        onMouseDown={() => setActiveThumb('max')}
+                        onTouchStart={() => setActiveThumb('max')}
                         onChange={(e) => handleMaxSlider(Number(e.target.value))}
                         className="form-range position-absolute top-0 start-0 w-100"
+                        style={{ zIndex: activeThumb === 'max' ? 5 : 4 }}
                       />
                     </div>
                     <div className="d-flex justify-content-between mt-2 fw-medium">
@@ -128,13 +163,15 @@ function ProductsContent() {
                     <h6 className="mb-3">Sort By</h6>
                     <select
                       className="form-select form-select-sm"
-                      value={filters.sort_by}
-                      onChange={(e) => handleFilterChange('sort_by', e.target.value)}
+                      value={filters.sort}
+                      onChange={(e) => setFilters((prev) => ({ ...prev, sort: e.target.value as SortOption }))}
                     >
-                      <option value="created_at">Newest First</option>
-                      <option value="base_price">Price: Low to High</option>
-                      <option value="name">Name</option>
-                      <option value="view_count">Most Popular</option>
+                      <option value="new">What's New</option>
+                      <option value="price_high">Price - High to Low</option>
+                      <option value="popularity">Popularity</option>
+                      <option value="discount">Discount</option>
+                      <option value="price_low">Price - Low to High</option>
+                      <option value="rating">Customer Rating</option>
                     </select>
                   </div>
 
@@ -148,14 +185,14 @@ function ProductsContent() {
             <div className="col-lg-9">
               <div className="mb-4">
                 <h2>{searchQuery ? `Search Results for "${searchQuery}"` : 'All Products'}</h2>
-                <p className="text-muted">{products.length} products found</p>
+                <p className="text-muted">{sortedProducts.length} products found</p>
               </div>
 
               {loading ? (
                 <Loading />
-              ) : products.length > 0 ? (
+              ) : sortedProducts.length > 0 ? (
                 <div className="row g-4">
-                  {products.map((product: any) => (
+                  {sortedProducts.map((product: any) => (
                     <div key={product.id} className="col-6 col-md-4">
                       <ProductCard product={product} />
                     </div>
