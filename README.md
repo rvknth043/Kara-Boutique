@@ -118,15 +118,27 @@ NEXT_PUBLIC_RAZORPAY_KEY_ID=your_razorpay_key_id
 ### 4. Database Setup
 
 ```bash
-# Create database
+# Create database (one-time)
 createdb kara_boutique
 
-# Run migrations
+# Apply base schema + SQL migrations
 npm run db:migrate
 
 # Seed initial data
 npm run db:seed
+
+# Or do both in one command
+npm run db:setup
+
+# Verify seed integrity (counts + foreign keys)
+npm run db:verify
 ```
+
+> `db:migrate` now runs `database/migrate.js`, which applies `database/schema.sql` only when base tables are missing and then applies pending SQL files from `database/migrations/`.
+
+> `db:seed` now generates large demo data by default (**100 users**, **1200 products**, variants, images, orders, reviews, carts, and wishlist). Override with `SEED_USER_COUNT` and `SEED_PRODUCT_COUNT` if needed.
+
+> Need a step-by-step local troubleshooting flow? Use `DATA_VISIBILITY_RUNBOOK.md` and run `npm run data:visibility:check`.
 
 ### 5. Start Development
 
@@ -251,13 +263,20 @@ server {
 ## 🧪 Testing
 
 ```bash
-# Run backend tests
+# Run backend unit tests
 cd backend
+npm run test:unit
+
+# Run backend integration tests
+npm run test:integration
+
+# Run full backend test suite
 npm test
 
-# Run frontend tests
-cd frontend
-npm test
+# Run frontend lint/build checks
+cd ../frontend
+npm run lint
+npm run build
 ```
 
 ## 📈 Performance Optimization
@@ -308,3 +327,20 @@ MIT License - see LICENSE file for details
 ---
 
 **Built with ❤️ for Kara Boutique**
+
+
+
+### ✅ DB Release Checklist
+
+```bash
+# 1) Apply schema + migrations
+npm run db:migrate
+
+# 2) Seed data (custom volume optional)
+SEED_USER_COUNT=100 SEED_PRODUCT_COUNT=1200 npm run db:seed
+
+# 3) Verify and emit report JSON
+SEED_USER_COUNT=100 SEED_PRODUCT_COUNT=1200 SEED_REPORT_FILE=database/artifacts/seed-report.json npm run db:verify
+```
+
+Expected result: `✅ Seed verification passed.` plus a JSON report at `database/artifacts/seed-report.json`.

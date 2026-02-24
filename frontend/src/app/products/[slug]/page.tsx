@@ -15,10 +15,11 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { FiHeart, FiShoppingCart } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import { resolveImageUrl } from '@/lib/image';
 
 export default function ProductDetailPage() {
   const params = useParams();
-  const slug = params.slug as string;
+  const productIdentifier = params.slug as string;
   const [product, setProduct] = useState<any>(null);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
   const [quantity, setQuantity] = useState(1);
@@ -33,19 +34,27 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     fetchProduct();
-  }, [slug]);
+  }, [productIdentifier]);
 
   const fetchProduct = async () => {
     try {
-      const response = await api.get(endpoints.products.getBySlug(slug));
-      const productData = response.data.data;
+      let productData: any = null;
+
+      try {
+        const response = await api.get(endpoints.products.getBySlug(productIdentifier));
+        productData = response.data.data;
+      } catch (slugError) {
+        const fallbackResponse = await api.get(endpoints.products.getById(productIdentifier));
+        productData = fallbackResponse.data.data;
+      }
+
       setProduct(productData);
-      
+
       // Select first available variant
       if (productData.variants && productData.variants.length > 0) {
         setSelectedVariant(productData.variants[0]);
       }
-      
+
       // Fetch reviews
       fetchReviews(productData.id);
     } catch (error) {
@@ -119,7 +128,7 @@ export default function ProductDetailPage() {
             <div className="col-lg-6 mb-4">
               <div className="card">
                 <Image
-                  src={product.images?.[0]?.image_url || '/placeholder.jpg'}
+                  src={resolveImageUrl(product.images?.[0]?.image_url)}
                   alt={product.name}
                   width={600}
                   height={800}
@@ -134,7 +143,7 @@ export default function ProductDetailPage() {
                   {product.images.slice(0, 4).map((img: any, index: number) => (
                     <div key={index} className="border rounded" style={{ width: '80px', height: '100px', overflow: 'hidden' }}>
                       <Image
-                        src={img.image_url}
+                        src={resolveImageUrl(img.image_url)}
                         alt={`${product.name} ${index + 1}`}
                         width={80}
                         height={100}

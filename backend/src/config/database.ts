@@ -1,7 +1,24 @@
 import { Pool, PoolClient, QueryResult } from 'pg';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 
-dotenv.config();
+const loadEnv = (): void => {
+  const envPaths = [
+    path.resolve(process.cwd(), '.env'),
+    path.resolve(process.cwd(), '..', '.env'),
+    path.resolve(__dirname, '../../.env'),
+    path.resolve(__dirname, '../../../.env'),
+  ];
+
+  for (const envPath of envPaths) {
+    if (fs.existsSync(envPath)) {
+      dotenv.config({ path: envPath, override: false });
+    }
+  }
+};
+
+loadEnv();
 
 // Database configuration
 const poolConfig = {
@@ -70,6 +87,14 @@ export const testConnection = async (): Promise<boolean> => {
     return true;
   } catch (error) {
     console.error('❌ Database connection failed:', error);
+    console.error('ℹ️ DB connection config:', {
+      host: poolConfig.host,
+      port: poolConfig.port,
+      database: poolConfig.database,
+      user: poolConfig.user,
+      hasPassword: Boolean(poolConfig.password),
+    });
+    console.error('ℹ️ Ensure DB credentials are set in backend/.env (or project-root .env).');
     return false;
   }
 };

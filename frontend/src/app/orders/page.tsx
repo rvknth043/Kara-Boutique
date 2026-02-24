@@ -10,6 +10,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 import Loading from '@/components/common/Loading';
+import { resolveImageUrl } from '@/lib/image';
 
 export default function OrdersPage() {
   const { isAuthenticated } = useAuth();
@@ -191,7 +192,7 @@ export default function OrdersPage() {
                           {order.items?.slice(0, 4).map((item: any, index: number) => (
                             <div key={index} className="d-flex align-items-center gap-2">
                               <Image
-                                src={item.product_image || '/placeholder.jpg'}
+                                src={resolveImageUrl(item.product_image)}
                                 alt={item.product_name}
                                 width={50}
                                 height={60}

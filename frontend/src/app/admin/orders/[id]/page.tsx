@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
+import { resolveImageUrl } from '@/lib/image';
 
 export default function AdminOrderDetailsPage() {
   const { isAdmin } = useAuth();
@@ -152,7 +153,7 @@ export default function AdminOrderDetailsPage() {
                         <td>
                           <div className="d-flex align-items-center gap-2">
                             <Image
-                              src={item.product_image || '/placeholder.jpg'}
+                              src={resolveImageUrl(item.product_image)}
                               alt={item.product_name}
                               width={50}
                               height={60}
