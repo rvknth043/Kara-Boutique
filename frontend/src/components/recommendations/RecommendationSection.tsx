@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import api from '@/lib/api';
+import { resolveImageUrl } from '@/lib/image';
 
 interface RecommendationProduct {
   product_id: string;
@@ -97,7 +98,7 @@ export default function RecommendationSection({
                     {/* Product Image */}
                     <div className="position-relative" style={{ height: '300px' }}>
                       <Image
-                        src={product.product_image || '/placeholder.jpg'}
+                        src={resolveImageUrl(product.product_image)}
                         alt={product.product_name}
                         fill
                         style={{ objectFit: 'cover' }}

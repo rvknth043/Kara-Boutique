@@ -7,6 +7,7 @@ import { useWishlist } from '@/context/WishlistContext';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { resolveImageUrl } from '@/lib/image';
 
 interface ProductCardProps {
   product: {
@@ -31,7 +32,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     ? Math.round(((product.base_price - product.discount_price) / product.base_price) * 100)
     : 0;
 
-  const imageUrl = product.images?.[0]?.image_url || '/placeholder.jpg';
+  const imageUrl = resolveImageUrl(product.images?.[0]?.image_url);
   const productPath = `/products/${product.slug || product.id}`;
   const inWishlist = isInWishlist(product.id);
 

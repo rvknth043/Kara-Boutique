@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
+import { resolveImageUrl } from '@/lib/image';
 
 export default function AdminProductsPage() {
   const { isAdmin } = useAuth();
@@ -120,7 +121,7 @@ export default function AdminProductsPage() {
                     <tr key={product.id}>
                       <td>
                         <Image
-                          src={product.images?.[0]?.image_url || '/placeholder.jpg'}
+                          src={resolveImageUrl(product.images?.[0]?.image_url)}
                           alt={product.name}
                           width={60}
                           height={80}

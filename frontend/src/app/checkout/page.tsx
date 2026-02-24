@@ -11,6 +11,7 @@ import StockTimer from '@/components/checkout/StockTimer';
 import CouponInput from '@/components/cart/CouponInput';
 import toast from 'react-hot-toast';
 import Script from 'next/script';
+import { resolveImageUrl } from '@/lib/image';
 
 declare global {
   interface Window {
@@ -292,7 +293,7 @@ export default function CheckoutPage() {
                   {items.map((item: any) => (
                     <div key={item.id} className="d-flex align-items-center mb-3 pb-3 border-bottom">
                       <img
-                        src={item.product_image || '/placeholder.jpg'}
+                        src={resolveImageUrl(item.product_image)}
                         alt={item.product_name}
                         width={60}
                         height={80}

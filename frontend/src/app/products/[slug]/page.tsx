@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { FiHeart, FiShoppingCart } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import { resolveImageUrl } from '@/lib/image';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -127,7 +128,7 @@ export default function ProductDetailPage() {
             <div className="col-lg-6 mb-4">
               <div className="card">
                 <Image
-                  src={product.images?.[0]?.image_url || '/placeholder.jpg'}
+                  src={resolveImageUrl(product.images?.[0]?.image_url)}
                   alt={product.name}
                   width={600}
                   height={800}
@@ -142,7 +143,7 @@ export default function ProductDetailPage() {
                   {product.images.slice(0, 4).map((img: any, index: number) => (
                     <div key={index} className="border rounded" style={{ width: '80px', height: '100px', overflow: 'hidden' }}>
                       <Image
-                        src={img.image_url}
+                        src={resolveImageUrl(img.image_url)}
                         alt={`${product.name} ${index + 1}`}
                         width={80}
                         height={100}

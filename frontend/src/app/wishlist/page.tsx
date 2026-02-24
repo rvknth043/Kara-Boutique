@@ -11,6 +11,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import Loading from '@/components/common/Loading';
+import { resolveImageUrl } from '@/lib/image';
 
 export default function WishlistPage() {
   const { isAuthenticated } = useAuth();
@@ -104,7 +105,7 @@ export default function WishlistPage() {
                     <div className="position-relative">
                       <Link href={`/products/${item.product_slug || item.product_id}`}>
                         <Image
-                          src={item.product_image || '/placeholder.jpg'}
+                          src={resolveImageUrl(item.product_image)}
                           alt={item.product_name}
                           width={400}
                           height={500}
