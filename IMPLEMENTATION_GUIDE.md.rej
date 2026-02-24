@@ -1,0 +1,117 @@
+diff a/IMPLEMENTATION_GUIDE.md b/IMPLEMENTATION_GUIDE.md	(rejected hunks)
+@@ -13,92 +13,112 @@
+ 
+ ### Prerequisites
+ ```bash
+ - Node.js >= 18.0.0
+ - PostgreSQL >= 14
+ - Redis >= 6
+ - npm or yarn
+ ```
+ 
+ ### Installation Steps
+ 
+ ```bash
+ # 1. Navigate to project
+ cd kara-boutique
+ 
+ # 2. Install root dependencies
+ npm install
+ 
+ # 3. Install workspace dependencies
+ cd frontend && npm install && cd ..
+ cd backend && npm install && cd ..
+ cd shared && npm install && cd ..
+ 
+ # 4. Setup database
+ createdb kara_boutique
+-psql kara_boutique < database/schema.sql
++npm run db:migrate
++npm run db:seed  # default: 100 users + 1200 products
++npm run db:verify  # validates counts + FK integrity
+ 
+ # 5. Create backend .env file
+ cp backend/.env.example backend/.env
+ # Edit backend/.env with your credentials
+ 
+ # 6. Create frontend .env file
+ touch frontend/.env.local
+ # Add:
+ # NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
+ # NEXT_PUBLIC_RAZORPAY_KEY_ID=your_key
+ 
+ # 7. Start Redis
+ redis-server
+ 
+ # 8. Start development servers
+ npm run dev
+ ```
+ 
++Quick setup shortcut:
++```bash
++npm run db:setup
++```
++
++
++#### Seed verification report artifact
++
++```bash
++SEED_REPORT_FILE=database/artifacts/seed-report.json npm run db:verify
++```
++
++This writes a machine-readable verification report that includes thresholds, counts, FK checks, and pass/fail.
++
++
++
+ ---
+ 
+ ## 🔧 Detailed Setup
+ 
+ ### 1. Database Setup
+ 
+ #### Create Database
+ ```bash
+ # Connect to PostgreSQL
+ psql -U postgres
+ 
+ # Create database
+ CREATE DATABASE kara_boutique;
+ 
+ # Exit
+ \q
+ ```
+ 
+-#### Run Schema
++#### Run Schema + Migrations
+ ```bash
+-psql -U postgres -d kara_boutique -f database/schema.sql
++npm run db:migrate
+ ```
+ 
++This command executes `database/migrate.js`, which applies `database/schema.sql` only when core tables do not exist and then applies pending SQL files from `database/migrations/`.
++
+ #### Verify Tables
+ ```bash
+ psql -U postgres -d kara_boutique
+ 
+ # List all tables
+ \dt
+ 
+ # Should see 19 tables:
+ # - users
+ # - admin_2fa
+ # - user_addresses
+ # - categories
+ # - products
+ # - product_variants
+ # - product_images
+ # - size_charts
+ # - wishlist
+ # - orders
+ # - order_items
+ # - payments
+ # - coupons
+ # - reviews
+ # - review_flags
+ # - abandoned_carts
+ # - inventory_logs

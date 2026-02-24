@@ -1,0 +1,55 @@
+diff a/backend/src/services/checkout.service.ts b/backend/src/services/checkout.service.ts	(rejected hunks)
+@@ -25,52 +25,51 @@ export interface StockReservation {
+     quantity: number;
+   }>;
+ }
+ 
+ export class CheckoutService {
+   private static RESERVATION_MINUTES = parseInt(process.env.STOCK_RESERVATION_MINUTES || '10');
+   
+   /**
+    * Initiate checkout - Reserve stock
+    */
+   static async initiateCheckout(userId: string): Promise<StockReservation> {
+     // Get cart items
+     const cartItems = await CartModel.getUserCart(userId);
+     
+     if (cartItems.length === 0) {
+       throw new AppError('Cart is empty', 400, 'CART_EMPTY');
+     }
+     
+     // Validate stock availability
+     const validation = await CartModel.validateCart(userId);
+     
+     if (!validation.valid) {
+       throw new AppError(
+         'Some items in your cart are out of stock',
+         400,
+-        'INSUFFICIENT_STOCK',
+-        validation.issues
++        'INSUFFICIENT_STOCK'
+       );
+     }
+     
+     // Reserve stock for all items
+     const reservedItems: Array<{ variant_id: string; quantity: number }> = [];
+     
+     await transaction(async (client) => {
+       for (const item of cartItems) {
+         const reserved = await ProductVariantModel.reserveStock(
+           item.product_variant_id,
+           item.quantity
+         );
+         
+         if (!reserved) {
+           throw new AppError(
+             `Failed to reserve stock for ${item.product_name}`,
+             400,
+             'RESERVATION_FAILED'
+           );
+         }
+         
+         reservedItems.push({
+           variant_id: item.product_variant_id,
+           quantity: item.quantity,
+         });
