@@ -13,6 +13,8 @@ export default function AdminProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [bulkAction, setBulkAction] = useState<'create' | 'update' | 'delete'>('create');
+  const [bulkJson, setBulkJson] = useState('[\n  {\n    "name": "Sample Product",\n    "description": "Description",\n    "category_id": "<category-uuid>",\n    "base_price": 1999,\n    "variants": [{ "size": "M", "color": "Black", "stock_quantity": 10 }]\n  }\n]');
 
   useEffect(() => {
     if (isAdmin) {
@@ -57,6 +59,38 @@ export default function AdminProductsPage() {
     fetchProducts();
   };
 
+
+
+  const handleBulkSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    let items: any[] = [];
+    try {
+      const parsed = JSON.parse(bulkJson);
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        toast.error('Bulk payload must be a non-empty JSON array');
+        return;
+      }
+      items = parsed;
+    } catch {
+      toast.error('Invalid JSON payload');
+      return;
+    }
+
+    try {
+      const response = await api.post('/products/bulk', {
+        action: bulkAction,
+        items,
+      });
+
+      const result = response.data?.data;
+      toast.success(`Bulk ${bulkAction}: ${result?.success || 0} success, ${result?.failed || 0} failed`);
+      fetchProducts();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || 'Bulk operation failed');
+    }
+  };
+
   if (!isAdmin) return null;
 
   return (
@@ -86,6 +120,34 @@ export default function AdminProductsPage() {
                 Search
               </button>
             </div>
+          </form>
+        </div>
+      </div>
+
+
+      <div className="card mb-4">
+        <div className="card-body">
+          <h5 className="mb-3">Bulk Upload / Bulk CRUD</h5>
+          <p className="text-muted small">Use JSON array payload for bulk create, update, or delete. For update/delete each item must include <code>id</code>.</p>
+          <form onSubmit={handleBulkSubmit}>
+            <div className="row g-2 mb-2">
+              <div className="col-md-3">
+                <select className="form-select" value={bulkAction} onChange={(e) => setBulkAction(e.target.value as any)}>
+                  <option value="create">Create</option>
+                  <option value="update">Update</option>
+                  <option value="delete">Delete</option>
+                </select>
+              </div>
+              <div className="col-md-9 text-md-end">
+                <button type="submit" className="btn btn-outline-primary">Run Bulk Operation</button>
+              </div>
+            </div>
+            <textarea
+              className="form-control font-monospace"
+              rows={10}
+              value={bulkJson}
+              onChange={(e) => setBulkJson(e.target.value)}
+            />
           </form>
         </div>
       </div>

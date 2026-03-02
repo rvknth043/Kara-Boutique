@@ -18,6 +18,7 @@ export default function AdminOrderDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [trackingNumber, setTrackingNumber] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('placed');
 
   useEffect(() => {
     if (!isAdmin) {
@@ -32,6 +33,7 @@ export default function AdminOrderDetailsPage() {
       const response = await api.get(`/orders/${orderId}`);
       setOrder(response.data.data);
       setTrackingNumber(response.data.data.tracking_number || '');
+      setSelectedStatus(response.data.data.order_status || 'placed');
     } catch (error) {
       toast.error('Failed to load order');
       router.push('/admin/orders');
@@ -40,13 +42,13 @@ export default function AdminOrderDetailsPage() {
     }
   };
 
-  const handleStatusUpdate = async (newStatus: string) => {
-    if (!confirm(`Update order status to "${newStatus}"?`)) return;
+  const handleStatusUpdate = async () => {
+    if (!confirm(`Update order status to \"${selectedStatus}\"?`)) return;
 
     setUpdating(true);
     try {
       await api.put(`/orders/admin/${orderId}/status`, {
-        order_status: newStatus,
+        order_status: selectedStatus,
         tracking_number: trackingNumber || undefined,
       });
       toast.success('Order status updated');
@@ -211,8 +213,8 @@ export default function AdminOrderDetailsPage() {
                 <label className="form-label">Update Status</label>
                 <select
                   className="form-select"
-                  value={order.order_status}
-                  onChange={(e) => handleStatusUpdate(e.target.value)}
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
                   disabled={updating}
                 >
                   <option value="placed">Placed</option>
@@ -235,7 +237,7 @@ export default function AdminOrderDetailsPage() {
               </div>
 
               <button
-                onClick={() => handleStatusUpdate(order.order_status)}
+                onClick={handleStatusUpdate}
                 className="btn btn-primary w-100"
                 disabled={updating}
               >

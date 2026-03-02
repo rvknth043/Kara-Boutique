@@ -7,6 +7,7 @@ import {
   updateCategoryValidator,
   categoryIdValidator,
   categorySlugValidator,
+  bulkCategoryOperationValidator,
 } from '../validators/category.validator';
 
 const router = Router();
@@ -75,6 +76,20 @@ router.post(
   isAdmin,
   validate(createCategoryValidator),
   CategoryController.createCategory
+);
+
+
+/**
+ * @route   POST /api/v1/categories/bulk
+ * @desc    Bulk category operations (create/update/delete)
+ * @access  Admin
+ */
+router.post(
+  '/bulk',
+  authenticate,
+  isAdmin,
+  validate(bulkCategoryOperationValidator),
+  CategoryController.bulkOperation
 );
 
 /**

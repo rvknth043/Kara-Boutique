@@ -12,6 +12,7 @@ import {
   productIdValidator,
   productSlugValidator,
   categorySlugValidator,
+  bulkProductOperationValidator,
 } from '../validators/product.validator';
 
 const router = Router();
@@ -91,6 +92,20 @@ router.get(
   '/:id',
   validate(productIdValidator),
   ProductController.getProductById
+);
+
+
+/**
+ * @route   POST /api/v1/products/bulk
+ * @desc    Bulk product operations (create/update/delete)
+ * @access  Admin
+ */
+router.post(
+  '/bulk',
+  authenticate,
+  isAdmin,
+  validate(bulkProductOperationValidator),
+  ProductController.bulkOperation
 );
 
 /**

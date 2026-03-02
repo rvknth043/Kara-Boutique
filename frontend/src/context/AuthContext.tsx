@@ -104,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     register,
     logout,
     isAuthenticated: !!token,
-    isAdmin: user?.role === 'admin' || user?.role === 'manager',
+    isAdmin: user?.role === 'admin' || user?.role === 'manager' || user?.role === 'staff',
     loading,
   };
 

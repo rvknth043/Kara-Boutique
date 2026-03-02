@@ -269,6 +269,18 @@ export const categorySlugValidator = [
     .withMessage('Invalid slug format'),
 ];
 
+
+
+export const bulkProductOperationValidator = [
+  body('action')
+    .isIn(['create', 'update', 'delete'])
+    .withMessage('Action must be create, update, or delete'),
+
+  body('items')
+    .isArray({ min: 1 })
+    .withMessage('Items must be a non-empty array'),
+];
+
 export default {
   createProductValidator,
   updateProductValidator,
@@ -278,5 +290,6 @@ export default {
   searchProductsValidator,
   productIdValidator,
   productSlugValidator,
+  bulkProductOperationValidator,
   categorySlugValidator,
 };
