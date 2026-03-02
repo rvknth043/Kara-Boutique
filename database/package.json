@@ -1,0 +1,12 @@
+{
+  "name": "@kara-boutique/database",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Database tooling for Kara Boutique",
+  "scripts": {
+    "migrate": "node migrate.js",
+    "seed": "node seed.js",
+    "verify-seed": "node verify-seed.js",
+    "verify-seed:report": "SEED_REPORT_FILE=artifacts/seed-report.json node verify-seed.js"
+  }
+}

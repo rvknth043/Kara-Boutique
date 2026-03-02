@@ -13,7 +13,7 @@ export class SMSService {
   /**
    * Send SMS
    */
-  private static async sendSMS(phone: string, message: string) {
+  static async sendSMS(phone: string, message: string) {
     try {
       // Example: Generic SMS API call
       // Replace with your actual SMS provider's API

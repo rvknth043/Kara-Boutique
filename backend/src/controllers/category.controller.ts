@@ -134,6 +134,97 @@ export class CategoryController {
   });
   
   /**
+   * Bulk category operations
+   * POST /api/v1/categories/bulk
+   * Admin only
+   */
+  static bulkOperation = asyncHandler(async (req: Request, res: Response) => {
+    const { action, items } = req.body as { action: 'create' | 'update' | 'delete'; items: any[] };
+
+    const results: Array<{ index: number; id?: string; status: 'success' | 'failed'; message: string }> = [];
+
+    for (let index = 0; index < (items || []).length; index++) {
+      const item = items[index];
+      try {
+        if (action === 'create') {
+          let slug = generateSlug(item.name || 'category');
+          let counter = 1;
+          while (await CategoryModel.slugExists(slug)) {
+            slug = `${generateSlug(item.name || 'category')}-${counter++}`;
+          }
+
+          const created = await CategoryModel.create({
+            name: item.name,
+            slug,
+            parent_id: item.parent_id,
+            meta_title: item.meta_title,
+            meta_description: item.meta_description,
+            display_order: item.display_order,
+          });
+          results.push({ index, id: created.id, status: 'success', message: 'Created' });
+          continue;
+        }
+
+        if (!item?.id) {
+          throw new AppError('id is required for update/delete operation', 400, 'VALIDATION_ERROR');
+        }
+
+        if (action === 'update') {
+          const updateData = { ...item };
+          if (updateData.name) {
+            let slug = generateSlug(updateData.name);
+            let counter = 1;
+            while (await CategoryModel.slugExists(slug, item.id)) {
+              slug = `${generateSlug(updateData.name)}-${counter++}`;
+            }
+            updateData.slug = slug;
+          }
+
+          const updated = await CategoryModel.update(item.id, updateData);
+          if (!updated) {
+            throw new AppError('Category not found', 404, 'CATEGORY_NOT_FOUND');
+          }
+          results.push({ index, id: item.id, status: 'success', message: 'Updated' });
+          continue;
+        }
+
+        const productCount = await CategoryModel.getProductCount(item.id);
+        if (productCount > 0) {
+          throw new AppError('Cannot delete category with products', 400, 'CATEGORY_HAS_PRODUCTS');
+        }
+
+        const subcategories = await CategoryModel.getSubcategories(item.id);
+        if (subcategories.length > 0) {
+          throw new AppError('Cannot delete category with subcategories', 400, 'CATEGORY_HAS_SUBCATEGORIES');
+        }
+
+        const deleted = await CategoryModel.delete(item.id);
+        if (!deleted) {
+          throw new AppError('Category not found', 404, 'CATEGORY_NOT_FOUND');
+        }
+
+        results.push({ index, id: item.id, status: 'success', message: 'Deleted' });
+      } catch (error: any) {
+        results.push({ index, id: item?.id, status: 'failed', message: error?.message || 'Operation failed' });
+      }
+    }
+
+    const successCount = results.filter((r) => r.status === 'success').length;
+
+    res.status(200).json({
+      success: true,
+      message: `Bulk ${action} completed`,
+      data: {
+        action,
+        total: items.length,
+        success: successCount,
+        failed: items.length - successCount,
+        results,
+      },
+    });
+  });
+
+  /**
    * Update category
    * PUT /api/v1/categories/:id
    * Admin only

@@ -46,10 +46,14 @@ export default function AccountPage() {
         api.get('/users/addresses'),
       ]);
 
+      const ordersData = Array.isArray(ordersRes.data?.data) ? ordersRes.data.data : (Array.isArray(ordersRes.data?.data?.orders) ? ordersRes.data.data.orders : []);
+      const wishlistData = Array.isArray(wishlistRes.data?.data) ? wishlistRes.data.data : [];
+      const addressesData = Array.isArray(addressesRes.data?.data) ? addressesRes.data.data : [];
+
       setStats({
-        totalOrders: ordersRes.data.data?.length || 0,
-        wishlistItems: wishlistRes.data.data?.length || 0,
-        savedAddresses: addressesRes.data.data?.length || 0,
+        totalOrders: ordersData.length,
+        wishlistItems: wishlistData.length,
+        savedAddresses: addressesData.length,
       });
     } catch (error) {
       console.error('Failed to fetch user stats');
@@ -58,12 +62,24 @@ export default function AccountPage() {
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    const payload: Record<string, string> = {};
+    const nextFullName = formData.full_name.trim();
+    const nextPhone = formData.phone.trim();
+
+    if (nextFullName && nextFullName !== (user?.full_name || '')) payload.full_name = nextFullName;
+    if (nextPhone !== (user?.phone || '')) payload.phone = nextPhone;
+
+    if (!Object.keys(payload).length) {
+      toast('No profile changes to save');
+      setEditing(false);
+      return;
+    }
+
     try {
-      await api.put('/users/profile', formData);
+      await api.put('/users/profile', payload);
       toast.success('Profile updated successfully');
       setEditing(false);
-      // Reload user data
       window.location.reload();
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || 'Failed to update profile');

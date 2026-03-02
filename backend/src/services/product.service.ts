@@ -386,6 +386,58 @@ export class ProductService {
   }
   
   /**
+   * Bulk product operations
+   */
+  static async bulkOperation(
+    action: 'create' | 'update' | 'delete',
+    items: any[] = []
+  ) {
+    const results: Array<{ index: number; id?: string; status: 'success' | 'failed'; message: string }> = [];
+
+    for (let index = 0; index < items.length; index++) {
+      const item = items[index];
+
+      try {
+        if (action === 'create') {
+          const created = await this.createProduct(item);
+          results.push({ index, id: created.id, status: 'success', message: 'Created' });
+          continue;
+        }
+
+        if (!item?.id) {
+          throw new AppError('id is required for update/delete operation', 400, 'VALIDATION_ERROR');
+        }
+
+        if (action === 'update') {
+          await this.updateProduct(item.id, item);
+          results.push({ index, id: item.id, status: 'success', message: 'Updated' });
+          continue;
+        }
+
+        await this.deleteProduct(item.id);
+        results.push({ index, id: item.id, status: 'success', message: 'Deleted' });
+      } catch (error: any) {
+        results.push({
+          index,
+          id: item?.id,
+          status: 'failed',
+          message: error?.message || 'Operation failed',
+        });
+      }
+    }
+
+    const successCount = results.filter((r) => r.status === 'success').length;
+
+    return {
+      action,
+      total: items.length,
+      success: successCount,
+      failed: items.length - successCount,
+      results,
+    };
+  }
+
+  /**
    * Get low stock products
    */
   static async getLowStockProducts(threshold: number = 10) {

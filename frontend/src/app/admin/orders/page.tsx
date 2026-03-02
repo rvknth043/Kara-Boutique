@@ -6,10 +6,18 @@ import api from '@/lib/api';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 
+const asArray = (payload: any) => (Array.isArray(payload) ? payload : Array.isArray(payload?.orders) ? payload.orders : []);
+
+const asNumber = (value: unknown) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
 export default function AdminOrdersPage() {
   const { isAdmin } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({ page: 1, limit: 20, totalPages: 1, total: 0 });
   const [filter, setFilter] = useState({
     status: '',
     payment_status: '',
@@ -25,17 +33,26 @@ export default function AdminOrdersPage() {
 
   const fetchOrders = async () => {
     try {
+      setLoading(true);
       const params = new URLSearchParams();
       if (filter.status) params.append('order_status', filter.status);
       if (filter.payment_status) params.append('payment_status', filter.payment_status);
-      params.append('page', filter.page.toString());
-      params.append('limit', filter.limit.toString());
+      params.append('page', String(filter.page));
+      params.append('limit', String(filter.limit));
 
       const response = await api.get(`/orders/admin/all?${params.toString()}`);
-      setOrders(response.data.data.orders || []);
+      const payload = response.data?.data;
+      setOrders(asArray(payload?.orders || payload));
+      setPagination({
+        page: Number(payload?.pagination?.page || filter.page),
+        limit: Number(payload?.pagination?.limit || filter.limit),
+        totalPages: Number(payload?.pagination?.totalPages || 1),
+        total: Number(payload?.pagination?.total || 0),
+      });
     } catch (error) {
       console.error('Failed to fetch orders:', error);
-      toast.error('Failed to load orders');
+      setOrders([]);
+      toast.error('Unable to load orders');
     } finally {
       setLoading(false);
     }
@@ -57,47 +74,36 @@ export default function AdminOrdersPage() {
 
   return (
     <div className="container-fluid py-4">
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      <div className="d-flex justify-content-between align-items-center mb-3">
         <h2>Order Management</h2>
-        <div className="d-flex gap-2">
-          <select
-            className="form-select"
-            value={filter.status}
-            onChange={(e) => setFilter({ ...filter, status: e.target.value, page: 1 })}
-          >
-            <option value="">All Status</option>
-            <option value="placed">Placed</option>
-            <option value="processing">Processing</option>
-            <option value="shipped">Shipped</option>
-            <option value="delivered">Delivered</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
+        <small className="text-muted">Total: {pagination.total}</small>
+      </div>
 
-          <select
-            className="form-select"
-            value={filter.payment_status}
-            onChange={(e) => setFilter({ ...filter, payment_status: e.target.value, page: 1 })}
-          >
-            <option value="">All Payments</option>
-            <option value="paid">Paid</option>
-            <option value="pending">Pending</option>
-            <option value="failed">Failed</option>
-          </select>
-        </div>
+      <div className="d-flex gap-2 mb-4">
+        <select className="form-select" value={filter.status} onChange={(e) => setFilter({ ...filter, status: e.target.value, page: 1 })}>
+          <option value="">All Status</option>
+          <option value="placed">Placed</option>
+          <option value="shipped">Shipped</option>
+          <option value="delivered">Delivered</option>
+          <option value="cancelled">Cancelled</option>
+          <option value="returned">Returned</option>
+        </select>
+
+        <select className="form-select" value={filter.payment_status} onChange={(e) => setFilter({ ...filter, payment_status: e.target.value, page: 1 })}>
+          <option value="">All Payments</option>
+          <option value="paid">Paid</option>
+          <option value="pending">Pending</option>
+          <option value="failed">Failed</option>
+          <option value="refunded">Refunded</option>
+        </select>
       </div>
 
       <div className="card">
         <div className="card-body p-0">
           {loading ? (
-            <div className="text-center py-5">
-              <div className="spinner-border text-primary" role="status">
-                <span className="visually-hidden">Loading...</span>
-              </div>
-            </div>
+            <div className="text-center py-5"><div className="spinner-border text-primary" /></div>
           ) : orders.length === 0 ? (
-            <div className="text-center py-5">
-              <p className="text-muted">No orders found</p>
-            </div>
+            <div className="text-center py-5"><p className="text-muted">No orders found</p></div>
           ) : (
             <div className="table-responsive">
               <table className="table table-hover mb-0">
@@ -116,54 +122,25 @@ export default function AdminOrdersPage() {
                 <tbody>
                   {orders.map((order) => (
                     <tr key={order.id}>
-                      <td className="fw-medium">
-                        <Link href={`/admin/orders/${order.id}`} className="text-decoration-none">
-                          {order.order_number}
-                        </Link>
-                      </td>
+                      <td className="fw-medium"><Link href={`/admin/orders/${order.id}`}>{order.order_number}</Link></td>
                       <td>
-                        <div>{order.user_name}</div>
-                        <small className="text-muted">{order.user_email}</small>
+                        <div>{order.user_name || 'N/A'}</div>
+                        <small className="text-muted">{order.user_email || '-'}</small>
                       </td>
+                      <td><small>{new Date(order.created_at).toLocaleDateString('en-IN')}</small></td>
+                      <td>{order.item_count || 0}</td>
+                      <td className="fw-medium">₹{asNumber(order.final_amount).toLocaleString('en-IN')}</td>
+                      <td><span className="badge bg-secondary">{order.payment_status}</span></td>
                       <td>
-                        <small>{new Date(order.created_at).toLocaleDateString('en-IN')}</small>
-                      </td>
-                      <td>{order.item_count || order.items?.length || 0}</td>
-                      <td className="fw-medium">₹{order.final_amount.toLocaleString('en-IN')}</td>
-                      <td>
-                        <span className={`badge ${
-                          order.payment_status === 'paid' ? 'bg-success' : 
-                          order.payment_status === 'pending' ? 'bg-warning' : 
-                          'bg-danger'
-                        }`}>
-                          {order.payment_status}
-                        </span>
-                      </td>
-                      <td>
-                        <select
-                          className={`form-select form-select-sm ${
-                            order.order_status === 'delivered' ? 'text-success' : 
-                            order.order_status === 'cancelled' ? 'text-danger' :
-                            'text-primary'
-                          }`}
-                          value={order.order_status}
-                          onChange={(e) => handleStatusUpdate(order.id, e.target.value)}
-                        >
+                        <select className="form-select form-select-sm" value={order.order_status} onChange={(e) => handleStatusUpdate(order.id, e.target.value)}>
                           <option value="placed">Placed</option>
-                          <option value="processing">Processing</option>
                           <option value="shipped">Shipped</option>
                           <option value="delivered">Delivered</option>
                           <option value="cancelled">Cancelled</option>
+                          <option value="returned">Returned</option>
                         </select>
                       </td>
-                      <td>
-                        <Link 
-                          href={`/admin/orders/${order.id}`}
-                          className="btn btn-sm btn-outline-primary"
-                        >
-                          View
-                        </Link>
-                      </td>
+                      <td><Link href={`/admin/orders/${order.id}`} className="btn btn-sm btn-outline-primary">View</Link></td>
                     </tr>
                   ))}
                 </tbody>
@@ -173,27 +150,14 @@ export default function AdminOrdersPage() {
         </div>
       </div>
 
-      {/* Pagination */}
       <div className="d-flex justify-content-between align-items-center mt-3">
-        <div className="text-muted small">
-          Showing {orders.length} orders
-        </div>
-        <div className="d-flex gap-2">
-          <button
-            className="btn btn-sm btn-outline-secondary"
-            onClick={() => setFilter({ ...filter, page: filter.page - 1 })}
-            disabled={filter.page === 1}
-          >
-            Previous
-          </button>
-          <button
-            className="btn btn-sm btn-outline-secondary"
-            onClick={() => setFilter({ ...filter, page: filter.page + 1 })}
-            disabled={orders.length < filter.limit}
-          >
-            Next
-          </button>
-        </div>
+        <button className="btn btn-outline-secondary btn-sm" disabled={filter.page <= 1} onClick={() => setFilter((prev) => ({ ...prev, page: prev.page - 1 }))}>
+          Previous
+        </button>
+        <span className="small text-muted">Page {pagination.page} of {pagination.totalPages}</span>
+        <button className="btn btn-outline-secondary btn-sm" disabled={filter.page >= pagination.totalPages} onClick={() => setFilter((prev) => ({ ...prev, page: prev.page + 1 }))}>
+          Next
+        </button>
       </div>
     </div>
   );

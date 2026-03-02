@@ -1,8 +1,8 @@
 import rateLimit from 'express-rate-limit';
-import { Request, Response } from 'express';
+import { RequestHandler } from 'express';
 
 // General API rate limiter
-export const rateLimiter = rateLimit({
+const baseRateLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000'), // 1 minute
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'), // 100 requests per minute
   message: {
@@ -14,7 +14,7 @@ export const rateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  handler: (req: Request, res: Response) => {
+  handler: (_req, res) => {
     res.status(429).json({
       success: false,
       error: {
@@ -26,7 +26,7 @@ export const rateLimiter = rateLimit({
 });
 
 // Strict rate limiter for auth endpoints
-export const authRateLimiter = rateLimit({
+const baseAuthRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // 5 requests per 15 minutes
   skipSuccessfulRequests: true,
@@ -40,7 +40,7 @@ export const authRateLimiter = rateLimit({
 });
 
 // OTP rate limiter
-export const otpRateLimiter = rateLimit({
+const baseOtpRateLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutes
   max: 3, // 3 OTP requests per 10 minutes
   message: {
@@ -53,7 +53,7 @@ export const otpRateLimiter = rateLimit({
 });
 
 // Upload rate limiter
-export const uploadRateLimiter = rateLimit({
+const baseUploadRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 50, // 50 uploads per hour
   message: {
@@ -64,5 +64,11 @@ export const uploadRateLimiter = rateLimit({
     },
   },
 });
+
+// Cast through unknown to isolate cross-package express type resolution mismatches.
+export const rateLimiter = baseRateLimiter as unknown as RequestHandler;
+export const authRateLimiter = baseAuthRateLimiter as unknown as RequestHandler;
+export const otpRateLimiter = baseOtpRateLimiter as unknown as RequestHandler;
+export const uploadRateLimiter = baseUploadRateLimiter as unknown as RequestHandler;
 
 export default rateLimiter;

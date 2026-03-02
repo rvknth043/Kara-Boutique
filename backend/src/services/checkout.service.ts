@@ -9,6 +9,7 @@ import { AppError } from '../middleware/errorHandler';
 import { generateOrderNumber, calculateShippingCharge, calculateDiscount } from '../utils/helpers';
 import { CacheService, CACHE_KEYS } from '../config/redis';
 import { PaymentMethod, PaymentStatus, OrderStatus } from '../types/shared.types';
+import StorefrontSettingsService from './storefrontSettings.service';
 
 export interface CheckoutData {
   user_id: string;
@@ -47,8 +48,7 @@ export class CheckoutService {
       throw new AppError(
         'Some items in your cart are out of stock',
         400,
-        'INSUFFICIENT_STOCK',
-        validation.issues
+        'INSUFFICIENT_STOCK'
       );
     }
     
@@ -111,7 +111,21 @@ export class CheckoutService {
     if (address.user_id !== data.user_id) {
       throw new AppError('Invalid shipping address', 403, 'INVALID_ADDRESS');
     }
-    
+
+
+    const storefrontSettings = await StorefrontSettingsService.getSettings();
+
+    if (data.payment_method === PaymentMethod.COD) {
+      const allowedByDefault = storefrontSettings.cod_default_enabled;
+      const allowedPincodes = new Set(storefrontSettings.cod_enabled_pincodes || []);
+      const pincode = String(address.pincode || '');
+      const codAllowed = allowedByDefault || allowedPincodes.has(pincode);
+
+      if (!codAllowed) {
+        throw new AppError('Cash on Delivery is not available for this location', 400, 'COD_NOT_AVAILABLE');
+      }
+    }
+
     // Get cart
     const cartSummary = await CartModel.getUserCart(data.user_id);
     

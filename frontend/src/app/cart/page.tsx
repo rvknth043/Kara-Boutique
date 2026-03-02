@@ -10,6 +10,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import Loading from '@/components/common/Loading';
+import { resolveImageUrl } from '@/lib/image';
 
 export default function CartPage() {
   const { items, subtotal, total, updateQuantity, removeItem, loading } = useCart();
@@ -69,7 +70,7 @@ export default function CartPage() {
                       <div className="row align-items-center">
                         <div className="col-md-2">
                           <Image
-                            src={item.product_image || '/placeholder.jpg'}
+                            src={resolveImageUrl(item.product_image)}
                             alt={item.product_name}
                             width={100}
                             height={130}
