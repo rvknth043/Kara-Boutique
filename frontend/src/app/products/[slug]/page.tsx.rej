@@ -1,0 +1,89 @@
+diff a/frontend/src/app/products/[slug]/page.tsx b/frontend/src/app/products/[slug]/page.tsx	(rejected hunks)
+@@ -1,73 +1,81 @@
+ 'use client';
+ 
+ import { useState, useEffect } from 'react';
+ import { useParams } from 'next/navigation';
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+ import Loading from '@/components/common/Loading';
+ import ReviewForm from '@/components/reviews/ReviewForm';
+ import ReviewList from '@/components/reviews/ReviewList';
+ import api, { endpoints } from '@/lib/api';
+ import { useCart } from '@/context/CartContext';
+ import { useWishlist } from '@/context/WishlistContext';
+ import { useAuth } from '@/context/AuthContext';
+ import { useRouter } from 'next/navigation';
+ import Image from 'next/image';
+ import { FiHeart, FiShoppingCart } from 'react-icons/fi';
+ import toast from 'react-hot-toast';
+ 
+ export default function ProductDetailPage() {
+   const params = useParams();
+-  const slug = params.slug as string;
++  const productIdentifier = params.slug as string;
+   const [product, setProduct] = useState<any>(null);
+   const [selectedVariant, setSelectedVariant] = useState<any>(null);
+   const [quantity, setQuantity] = useState(1);
+   const [loading, setLoading] = useState(true);
+   const [reviews, setReviews] = useState<any[]>([]);
+   const [showReviewForm, setShowReviewForm] = useState(false);
+   
+   const { addToCart } = useCart();
+   const { isInWishlist, toggleWishlist } = useWishlist();
+   const { isAuthenticated } = useAuth();
+   const router = useRouter();
+ 
+   useEffect(() => {
+     fetchProduct();
+-  }, [slug]);
++  }, [productIdentifier]);
+ 
+   const fetchProduct = async () => {
+     try {
+-      const response = await api.get(endpoints.products.getBySlug(slug));
+-      const productData = response.data.data;
++      let productData: any = null;
++
++      try {
++        const response = await api.get(endpoints.products.getBySlug(productIdentifier));
++        productData = response.data.data;
++      } catch (slugError) {
++        const fallbackResponse = await api.get(endpoints.products.getById(productIdentifier));
++        productData = fallbackResponse.data.data;
++      }
++
+       setProduct(productData);
+-      
++
+       // Select first available variant
+       if (productData.variants && productData.variants.length > 0) {
+         setSelectedVariant(productData.variants[0]);
+       }
+-      
++
+       // Fetch reviews
+       fetchReviews(productData.id);
+     } catch (error) {
+       console.error('Failed to fetch product:', error);
+       toast.error('Product not found');
+     } finally {
+       setLoading(false);
+     }
+   };
+ 
+   const fetchReviews = async (productId: string) => {
+     try {
+       const response = await api.get(`/reviews/product/${productId}`);
+       setReviews(response.data.data || []);
+     } catch (error) {
+       console.error('Failed to fetch reviews:', error);
+     }
+   };
+ 
+   const handleReviewSubmitted = () => {
+     setShowReviewForm(false);
+     if (product) {
+       fetchReviews(product.id);
+     }
+   };

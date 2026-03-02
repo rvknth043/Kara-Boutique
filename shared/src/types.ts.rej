@@ -1,0 +1,124 @@
+diff a/shared/src/types.ts b/shared/src/types.ts	(rejected hunks)
+@@ -1,42 +1,43 @@
+ // ========================================
+ // USER TYPES
+ // ========================================
+ 
+ export enum UserRole {
+   CUSTOMER = 'customer',
+   ADMIN = 'admin',
+   MANAGER = 'manager',
+   STAFF = 'staff'
+ }
+ 
+ export interface User {
+   id: string;
+   full_name: string;
+   email: string;
+   phone?: string;
+   google_id?: string;
++  password_hash?: string;
+   role: UserRole;
+   is_active: boolean;
+   created_at: Date;
+   updated_at: Date;
+ }
+ 
+ export interface UserAddress {
+   id: string;
+   user_id: string;
+   address_line1: string;
+   address_line2?: string;
+   city: string;
+   state: string;
+   pincode: string;
+   country: string;
+   is_default: boolean;
+   created_at: Date;
+ }
+ 
+ // ========================================
+ // PRODUCT TYPES
+ // ========================================
+ 
+ export enum ProductSize {
+   S = 'S',
+@@ -156,50 +157,51 @@ export enum OrderStatus {
+   CANCELLED = 'cancelled',
+   RETURNED = 'returned'
+ }
+ 
+ export enum PaymentMethod {
+   UPI = 'UPI',
+   CARD = 'CARD',
+   NETBANKING = 'NETBANKING',
+   WALLET = 'WALLET',
+   COD = 'COD'
+ }
+ 
+ export interface Order {
+   id: string;
+   user_id: string;
+   order_number: string;
+   total_amount: number;
+   shipping_charge: number;
+   discount_amount: number;
+   final_amount: number;
+   payment_status: PaymentStatus;
+   order_status: OrderStatus;
+   payment_method: PaymentMethod;
+   shipping_address_id: string;
+   tracking_number?: string;
++  transaction_id?: string;
+   invoice_url?: string;
+   created_at: Date;
+   shipped_at?: Date;
+   delivered_at?: Date;
+ }
+ 
+ export interface OrderItem {
+   id: string;
+   order_id: string;
+   product_variant_id: string;
+   quantity: number;
+   price: number;
+   subtotal: number;
+ }
+ 
+ export interface OrderWithDetails extends Order {
+   items: OrderItemWithProduct[];
+   shipping_address: UserAddress;
+ }
+ 
+ export interface OrderItemWithProduct extends OrderItem {
+   product: ProductWithDetails;
+   variant: ProductVariant;
+ }
+ 
+@@ -470,26 +472,25 @@ export interface ShippingRate {
+ export interface TrackingInfo {
+   tracking_number: string;
+   current_status: string;
+   estimated_delivery: Date;
+   tracking_events: {
+     status: string;
+     location: string;
+     timestamp: Date;
+   }[];
+ }
+ 
+ // ========================================
+ // RECOMMENDATION TYPES
+ // ========================================
+ 
+ export interface RecommendationResult {
+   frequently_bought_together: Product[];
+   similar_products: Product[];
+   personalized_suggestions: Product[];
+ }
+ 
+ // ========================================
+ // EXPORT ALL
+ // ========================================
+ 
+-export * from './index';

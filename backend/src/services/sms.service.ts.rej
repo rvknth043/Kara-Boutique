@@ -1,0 +1,44 @@
+diff a/backend/src/services/sms.service.ts b/backend/src/services/sms.service.ts	(rejected hunks)
+@@ -1,41 +1,41 @@
+ import axios from 'axios';
+ import dotenv from 'dotenv';
+ 
+ dotenv.config();
+ 
+ // SMS Gateway Configuration (Using a generic SMS API structure)
+ // Replace with your actual SMS provider (Twilio, AWS SNS, MSG91, etc.)
+ const SMS_API_URL = process.env.SMS_API_URL || '';
+ const SMS_API_KEY = process.env.SMS_API_KEY || '';
+ const SMS_SENDER_ID = process.env.SMS_SENDER_ID || 'KARABOU';
+ 
+ export class SMSService {
+   /**
+    * Send SMS
+    */
+-  private static async sendSMS(phone: string, message: string) {
++  static async sendSMS(phone: string, message: string) {
+     try {
+       // Example: Generic SMS API call
+       // Replace with your actual SMS provider's API
+       const response = await axios.post(SMS_API_URL, {
+         apikey: SMS_API_KEY,
+         sender: SMS_SENDER_ID,
+         phone: phone,
+         message: message,
+       });
+       
+       console.log('SMS sent successfully:', response.data);
+       return response.data;
+     } catch (error) {
+       console.error('SMS send error:', error);
+       // Don't throw error - SMS is not critical
+       return null;
+     }
+   }
+   
+   /**
+    * Send OTP SMS
+    */
+   static async sendOTP(phone: string, otp: string) {
+     const message = `Your OTP for Kara Boutique is: ${otp}. Valid for 10 minutes. Do not share with anyone.`;
+     

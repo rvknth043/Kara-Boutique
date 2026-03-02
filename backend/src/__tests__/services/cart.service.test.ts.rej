@@ -1,0 +1,277 @@
+diff a/backend/src/__tests__/services/cart.service.test.ts b/backend/src/__tests__/services/cart.service.test.ts	(rejected hunks)
+@@ -1,213 +1,97 @@
+ import { CartService } from '../../services/cart.service';
+ import CartModel from '../../models/Cart.model';
+ import ProductVariantModel from '../../models/ProductVariant.model';
++import { CacheService } from '../../config/redis';
+ 
+ jest.mock('../../models/Cart.model');
+ jest.mock('../../models/ProductVariant.model');
++jest.mock('../../models/Product.model');
++jest.mock('../../config/redis', () => ({
++  CacheService: {
++    get: jest.fn(),
++    set: jest.fn(),
++    del: jest.fn(),
++  },
++  CACHE_KEYS: {
++    CART: (userId: string) => `cart:${userId}`,
++  },
++  CACHE_TTL: {
++    CART: 3600,
++  },
++}));
+ 
+ describe('CartService', () => {
+-  const mockUserId = 'user-123';
+-  const mockVariantId = 'variant-456';
++  const userId = 'user-1';
++  const variantId = 'variant-1';
+ 
+   beforeEach(() => {
+     jest.clearAllMocks();
++    (CacheService.get as jest.Mock).mockResolvedValue(null);
++    (CacheService.set as jest.Mock).mockResolvedValue(undefined);
++    (CacheService.del as jest.Mock).mockResolvedValue(undefined);
+   });
+ 
+-  describe('getUserCart', () => {
+-    it('should return user cart with items', async () => {
+-      const mockCartItems = [
+-        {
+-          id: '1',
+-          user_id: mockUserId,
+-          product_variant_id: mockVariantId,
+-          quantity: 2,
+-          product_name: 'Test Product',
+-          subtotal: 2000,
+-        },
+-      ];
+-
+-      (CartModel.getUserCart as jest.Mock).mockResolvedValue(mockCartItems);
+-
+-      const result = await CartService.getUserCart(mockUserId);
+-
+-      expect(result).toEqual(mockCartItems);
+-      expect(CartModel.getUserCart).toHaveBeenCalledWith(mockUserId);
++  it('adds item to cart when stock is available', async () => {
++    (ProductVariantModel.findById as jest.Mock).mockResolvedValue({
++      id: variantId,
++      is_active: true,
++      stock_quantity: 10,
++      reserved_quantity: 0,
+     });
++    (ProductVariantModel.hasStock as jest.Mock).mockResolvedValue(true);
++    (CartModel.getItemByVariant as jest.Mock).mockResolvedValue(null);
++    (CartModel.addItem as jest.Mock).mockResolvedValue({ id: 'cart-1', user_id: userId, product_variant_id: variantId, quantity: 2 });
+ 
+-    it('should return empty array for empty cart', async () => {
+-      (CartModel.getUserCart as jest.Mock).mockResolvedValue([]);
++    const result = await CartService.addToCart(userId, variantId, 2);
+ 
+-      const result = await CartService.getUserCart(mockUserId);
+-
+-      expect(result).toEqual([]);
+-      expect(result).toHaveLength(0);
+-    });
++    expect(CartModel.addItem).toHaveBeenCalledWith(userId, variantId, 2);
++    expect(result.id).toBe('cart-1');
+   });
+ 
+-  describe('addToCart', () => {
+-    it('should add new item to cart', async () => {
+-      const mockVariant = {
+-        id: mockVariantId,
+-        stock_quantity: 10,
+-        reserved_quantity: 0,
+-      };
+-
+-      const mockCartItem = {
+-        id: '1',
+-        user_id: mockUserId,
+-        product_variant_id: mockVariantId,
+-        quantity: 2,
+-      };
+-
+-      (CartModel.findByUserAndVariant as jest.Mock).mockResolvedValue(null);
+-      (ProductVariantModel.findById as jest.Mock).mockResolvedValue(
+-        mockVariant
+-      );
+-      (CartModel.create as jest.Mock).mockResolvedValue(mockCartItem);
+-
+-      const result = await CartService.addToCart(mockUserId, {
+-        product_variant_id: mockVariantId,
+-        quantity: 2,
+-      });
+-
+-      expect(result).toEqual(mockCartItem);
+-      expect(CartModel.create).toHaveBeenCalled();
+-    });
++  it('returns summarized cart payload', async () => {
++    (CartModel.getUserCart as jest.Mock).mockResolvedValue([
++      { id: '1', quantity: 2, subtotal: 1000 },
++      { id: '2', quantity: 1, subtotal: 500 },
++    ]);
+ 
+-    it('should update quantity if item already in cart', async () => {
+-      const existingItem = {
+-        id: '1',
+-        quantity: 2,
+-      };
+-
+-      const mockVariant = {
+-        id: mockVariantId,
+-        stock_quantity: 10,
+-        reserved_quantity: 0,
+-      };
+-
+-      (CartModel.findByUserAndVariant as jest.Mock).mockResolvedValue(
+-        existingItem
+-      );
+-      (ProductVariantModel.findById as jest.Mock).mockResolvedValue(
+-        mockVariant
+-      );
+-      (CartModel.updateQuantity as jest.Mock).mockResolvedValue({
+-        ...existingItem,
+-        quantity: 4,
+-      });
+-
+-      const result = await CartService.addToCart(mockUserId, {
+-        product_variant_id: mockVariantId,
+-        quantity: 2,
+-      });
+-
+-      expect(CartModel.updateQuantity).toHaveBeenCalledWith('1', 4);
+-    });
++    const result = await CartService.getCart(userId);
+ 
+-    it('should throw error if insufficient stock', async () => {
+-      const mockVariant = {
+-        id: mockVariantId,
+-        stock_quantity: 5,
+-        reserved_quantity: 4,
+-      };
+-
+-      (CartModel.findByUserAndVariant as jest.Mock).mockResolvedValue(null);
+-      (ProductVariantModel.findById as jest.Mock).mockResolvedValue(
+-        mockVariant
+-      );
+-
+-      await expect(
+-        CartService.addToCart(mockUserId, {
+-          product_variant_id: mockVariantId,
+-          quantity: 10,
+-        })
+-      ).rejects.toThrow('Insufficient stock');
+-    });
++    expect(result.subtotal).toBe(1500);
++    expect(result.item_count).toBe(3);
++    expect(result.total).toBeGreaterThanOrEqual(1500);
+   });
+ 
+-  describe('updateQuantity', () => {
+-    it('should update item quantity', async () => {
+-      const mockUpdated = {
+-        id: '1',
+-        quantity: 5,
+-      };
+-
+-      (CartModel.updateQuantity as jest.Mock).mockResolvedValue(mockUpdated);
+-
+-      const result = await CartService.updateQuantity('1', 5);
+-
+-      expect(result).toEqual(mockUpdated);
+-      expect(CartModel.updateQuantity).toHaveBeenCalledWith('1', 5);
++  it('updates quantity for existing cart item', async () => {
++    (CartModel.getItemById as jest.Mock).mockResolvedValue({
++      id: 'item-1',
++      user_id: userId,
++      product_variant_id: variantId,
++      quantity: 1,
+     });
++    (ProductVariantModel.hasStock as jest.Mock).mockResolvedValue(true);
++    (CartModel.updateQuantity as jest.Mock).mockResolvedValue({ id: 'item-1', quantity: 3 });
+ 
+-    it('should throw error for invalid quantity', async () => {
+-      await expect(
+-        CartService.updateQuantity('1', 0)
+-      ).rejects.toThrow();
++    const result = await CartService.updateQuantity(userId, 'item-1', 3);
+ 
+-      await expect(
+-        CartService.updateQuantity('1', -5)
+-      ).rejects.toThrow();
+-    });
++    expect(CartModel.updateQuantity).toHaveBeenCalledWith('item-1', userId, 3);
++    expect(result.quantity).toBe(3);
+   });
+ 
+-  describe('removeItem', () => {
+-    it('should remove item from cart', async () => {
+-      (CartModel.delete as jest.Mock).mockResolvedValue(true);
++  it('removes item from cart', async () => {
++    (CartModel.removeItem as jest.Mock).mockResolvedValue(true);
+ 
+-      await CartService.removeItem('1');
++    const result = await CartService.removeItem(userId, 'item-1');
+ 
+-      expect(CartModel.delete).toHaveBeenCalledWith('1');
+-    });
++    expect(result.success).toBe(true);
++    expect(CartModel.removeItem).toHaveBeenCalledWith('item-1', userId);
+   });
+ 
+-  describe('clearCart', () => {
+-    it('should clear all items from user cart', async () => {
+-      (CartModel.clearUserCart as jest.Mock).mockResolvedValue(undefined);
++  it('clears cart', async () => {
++    (CartModel.clearCart as jest.Mock).mockResolvedValue(true);
+ 
+-      await CartService.clearCart(mockUserId);
++    const result = await CartService.clearCart(userId);
+ 
+-      expect(CartModel.clearUserCart).toHaveBeenCalledWith(mockUserId);
+-    });
+-  });
+-
+-  describe('validateCart', () => {
+-    it('should validate all items in cart', async () => {
+-      const mockValidation = {
+-        valid: true,
+-        issues: [],
+-      };
+-
+-      (CartModel.validateCart as jest.Mock).mockResolvedValue(
+-        mockValidation
+-      );
+-
+-      const result = await CartService.validateCart(mockUserId);
+-
+-      expect(result.valid).toBe(true);
+-      expect(result.issues).toHaveLength(0);
+-    });
+-
+-    it('should return issues for invalid items', async () => {
+-      const mockValidation = {
+-        valid: false,
+-        issues: [
+-          {
+-            item_id: '1',
+-            reason: 'Out of stock',
+-          },
+-        ],
+-      };
+-
+-      (CartModel.validateCart as jest.Mock).mockResolvedValue(
+-        mockValidation
+-      );
+-
+-      const result = await CartService.validateCart(mockUserId);
+-
+-      expect(result.valid).toBe(false);
+-      expect(result.issues).toHaveLength(1);
+-    });
++    expect(result.success).toBe(true);
++    expect(CartModel.clearCart).toHaveBeenCalledWith(userId);
+   });
+ });
