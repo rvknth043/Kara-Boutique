@@ -1,0 +1,21 @@
+{
+  "executionDate": "2026-03-02",
+  "framework": "Playwright",
+  "status": "blocked",
+  "summary": {
+    "total": 8,
+    "passed": 0,
+    "failed": 0,
+    "skipped": 8,
+    "executionTimeSeconds": 0,
+    "moduleBreakdown": {
+      "Enterprise E2E workflow": { "total": 2, "passed": 0, "failed": 0, "skipped": 2 },
+      "Validation and security checks": { "total": 4, "passed": 0, "failed": 0, "skipped": 4 },
+      "Performance and data integrity": { "total": 2, "passed": 0, "failed": 0, "skipped": 2 }
+    }
+  },
+  "blocker": {
+    "reason": "Playwright package unavailable in environment (npm registry 403)",
+    "command": "cd frontend && npx playwright test"
+  }
+}
