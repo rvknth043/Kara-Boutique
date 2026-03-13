@@ -4,12 +4,18 @@ import ProductVariantModel from '../models/ProductVariant.model';
 import EmailService from './email.service';
 import SMSService from './sms.service';
 import { AppError } from '../middleware/errorHandler';
+import StorefrontSettingsService from './storefrontSettings.service';
 
 export class ExchangeService {
   /**
    * Request exchange for an order
    */
   static async requestExchange(data: CreateExchangeData) {
+    const settings = await StorefrontSettingsService.getSettings();
+    if (!settings.allow_exchanges) {
+      throw new AppError('Exchanges are currently disabled by the store', 400, 'EXCHANGES_DISABLED');
+    }
+
     // Check if order is eligible for exchange
     const eligibility = await ExchangeModel.isEligibleForExchange(data.order_id);
     

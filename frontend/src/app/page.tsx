@@ -10,21 +10,28 @@ import Link from 'next/link';
 
 export default function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchFeaturedProducts = async () => {
+    const fetchHomepageData = async () => {
       try {
-        const response = await api.get(endpoints.products.featured);
-        setFeaturedProducts(response.data.data);
+        const [featuredResponse, categoriesResponse] = await Promise.all([
+          api.get(endpoints.products.featured),
+          api.get(endpoints.categories.getAll),
+        ]);
+
+        setFeaturedProducts(featuredResponse.data.data || []);
+        const categoryData = Array.isArray(categoriesResponse.data.data) ? categoriesResponse.data.data : [];
+        setCategories(categoryData.slice(0, 4));
       } catch (error) {
-        console.error('Failed to fetch featured products:', error);
+        console.error('Failed to fetch homepage data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchFeaturedProducts();
+    fetchHomepageData();
   }, []);
 
   return (
@@ -48,7 +55,7 @@ export default function HomePage() {
                 <Link href="/products" className="btn btn-primary btn-lg me-3">
                   Shop Now
                 </Link>
-                <Link href="/products/category/new-arrivals" className="btn btn-outline-dark btn-lg">
+                <Link href="/products?sort_by=created_at&sort_order=DESC" className="btn btn-outline-dark btn-lg">
                   New Arrivals
                 </Link>
               </div>
@@ -136,15 +143,15 @@ export default function HomePage() {
             </div>
 
             <div className="row g-4">
-              {['Kurthi', 'Sarees', 'Suits', 'Dresses'].map((category) => (
-                <div key={category} className="col-6 col-md-3">
-                  <Link 
-                    href={`/products/category/${category.toLowerCase()}`}
+              {categories.map((category: any) => (
+                <div key={category.id} className="col-6 col-md-3">
+                  <Link
+                    href={`/products/category/${encodeURIComponent(category.slug)}`}
                     className="text-decoration-none"
                   >
                     <div className="card border-0 shadow-sm h-100">
                       <div className="card-body text-center p-4">
-                        <h4 className="mb-3">{category}</h4>
+                        <h4 className="mb-3">{category.name}</h4>
                         <p className="text-muted small mb-0">Explore collection</p>
                       </div>
                     </div>

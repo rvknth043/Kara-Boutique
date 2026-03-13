@@ -209,6 +209,23 @@ export class ProductController {
   });
   
   /**
+   * Bulk product operations
+   * POST /api/v1/products/bulk
+   * Admin only
+   */
+  static bulkOperation = asyncHandler(async (req: Request, res: Response) => {
+    const { action, items } = req.body;
+
+    const result = await ProductService.bulkOperation(action, items);
+
+    res.status(200).json({
+      success: true,
+      message: `Bulk ${action} completed`,
+      data: result,
+    });
+  });
+
+  /**
    * Add variant to product
    * POST /api/v1/products/:id/variants
    * Admin only

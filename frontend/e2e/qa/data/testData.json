@@ -1,0 +1,30 @@
+{
+  "users": {
+    "customer": { "id": "u-c1", "full_name": "Priya Sharma", "email": "priya@test.com", "role": "customer" },
+    "admin": { "id": "u-a1", "full_name": "Admin User", "email": "admin@test.com", "role": "admin" },
+    "staff": { "id": "u-s1", "full_name": "Staff User", "email": "staff@test.com", "role": "staff" }
+  },
+  "products": [
+    { "id": "p1", "slug": "royal-saree", "name": "Royal Saree", "base_price": 2000, "discount_price": 1500, "category_name": "Sarees", "total_stock": 12,
+      "images": [{ "image_url": "/uploads/sample.jpg" }] },
+    { "id": "p2", "slug": "festive-kurta", "name": "Festive Kurta", "base_price": 1800, "discount_price": null, "category_name": "Kurtas", "total_stock": 0,
+      "images": [{ "image_url": "/uploads/sample2.jpg" }] }
+  ],
+  "categories": [
+    { "id": "c1", "name": "Sarees", "slug": "sarees", "is_active": true },
+    { "id": "c2", "name": "Kurtas", "slug": "kurtas", "is_active": true }
+  ],
+  "orders": [
+    {
+      "id": "o1",
+      "order_number": "ORD-20260101-0001",
+      "created_at": "2026-01-01T10:00:00.000Z",
+      "final_amount": 3000,
+      "payment_status": "paid",
+      "order_status": "placed",
+      "item_count": 2,
+      "user_name": "Priya Sharma",
+      "user_email": "priya@test.com"
+    }
+  ]
+}

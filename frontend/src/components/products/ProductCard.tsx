@@ -7,6 +7,7 @@ import { useWishlist } from '@/context/WishlistContext';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { resolveImageUrl } from '@/lib/image';
 
 interface ProductCardProps {
   product: {
@@ -31,7 +32,8 @@ export default function ProductCard({ product }: ProductCardProps) {
     ? Math.round(((product.base_price - product.discount_price) / product.base_price) * 100)
     : 0;
 
-  const imageUrl = product.images?.[0]?.image_url || '/placeholder.jpg';
+  const imageUrl = resolveImageUrl(product.images?.[0]?.image_url);
+  const productPath = `/products/${product.slug || product.id}`;
   const inWishlist = isInWishlist(product.id);
 
   const handleWishlistClick = (e: React.MouseEvent) => {
@@ -58,7 +60,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <div className="product-card card h-100">
-      <Link href={`/products/${product.slug}`} className="position-relative">
+      <Link href={productPath} className="position-relative">
         <Image
           src={imageUrl}
           alt={product.name}
@@ -90,7 +92,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       </Link>
 
       <div className="card-body d-flex flex-column">
-        <Link href={`/products/${product.slug}`} className="text-decoration-none text-dark">
+        <Link href={productPath} className="text-decoration-none text-dark">
           <h6 className="card-title mb-2">{product.name}</h6>
         </Link>
 

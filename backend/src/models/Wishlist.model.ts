@@ -13,6 +13,12 @@ export interface WishlistItemWithDetails extends WishlistItem {
   product_base_price: number;
   product_discount_price?: number;
   product_image?: string;
+  variant_id?: string;
+  variant_size?: string;
+  variant_color?: string;
+  variant_price?: number;
+  base_price?: number;
+  stock_quantity?: number;
   is_active: boolean;
   is_in_stock: boolean;
   category_name: string;
@@ -58,6 +64,12 @@ export class WishlistModel {
         p.is_active,
         c.name as category_name,
         pi.image_url as product_image,
+        v.variant_id,
+        v.variant_size,
+        v.variant_color,
+        v.variant_price,
+        v.base_price,
+        v.stock_quantity,
         EXISTS(
           SELECT 1 FROM product_variants pv 
           WHERE pv.product_id = p.id 
@@ -68,6 +80,15 @@ export class WishlistModel {
       JOIN products p ON w.product_id = p.id
       JOIN categories c ON p.category_id = c.id
       LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_primary = true
+      LEFT JOIN LATERAL (
+        SELECT pv.id as variant_id, pv.size as variant_size, pv.color as variant_color,
+               p.discount_price as variant_price, p.base_price as base_price,
+               (pv.stock_quantity - pv.reserved_quantity) as stock_quantity
+        FROM product_variants pv
+        WHERE pv.product_id = p.id AND pv.is_active = true
+        ORDER BY (pv.stock_quantity - pv.reserved_quantity) DESC, pv.created_at ASC
+        LIMIT 1
+      ) v ON true
       WHERE w.user_id = $1
       ORDER BY w.added_at DESC
     `;

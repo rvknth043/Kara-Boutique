@@ -19,7 +19,11 @@
     "start:frontend": "cd frontend && npm run start",
     "start:backend": "cd backend && npm run start",
     "db:migrate": "cd database && npm run migrate",
-    "db:seed": "cd database && npm run seed"
+    "db:seed": "cd database && npm run seed",
+    "db:setup": "npm run db:migrate && npm run db:seed",
+    "db:verify": "cd database && npm run verify-seed",
+    "db:verify:report": "cd database && npm run verify-seed:report",
+    "data:visibility:check": "bash scripts/data-visibility-check.sh"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
@@ -41,5 +45,9 @@
     "postgresql"
   ],
   "author": "Kara Boutique",
-  "license": "MIT"
+  "license": "MIT",
+  "overrides": {
+    "@types/express": "4.17.25",
+    "@types/express-serve-static-core": "4.19.8"
+  }
 }

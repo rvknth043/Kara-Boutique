@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="8" failures="0" skipped="8" time="0">
+  <testsuite name="QA Automation Suite" tests="8" failures="0" skipped="8" time="0">
+    <testcase classname="workflow" name="login-admin-bulk-order-settings" time="0"><skipped message="Blocked: Playwright package unavailable (npm 403)"/></testcase>
+    <testcase classname="workflow" name="unauthorized-direct-url" time="0"><skipped message="Blocked: Playwright package unavailable (npm 403)"/></testcase>
+    <testcase classname="validation" name="invalid-json" time="0"><skipped message="Blocked: Playwright package unavailable (npm 403)"/></testcase>
+    <testcase classname="validation" name="empty-array" time="0"><skipped message="Blocked: Playwright package unavailable (npm 403)"/></testcase>
+    <testcase classname="validation" name="xss" time="0"><skipped message="Blocked: Playwright package unavailable (npm 403)"/></testcase>
+    <testcase classname="validation" name="sql-injection-like" time="0"><skipped message="Blocked: Playwright package unavailable (npm 403)"/></testcase>
+    <testcase classname="performance" name="products-integrity" time="0"><skipped message="Blocked: Playwright package unavailable (npm 403)"/></testcase>
+    <testcase classname="performance" name="orders-pagination" time="0"><skipped message="Blocked: Playwright package unavailable (npm 403)"/></testcase>
+  </testsuite>
+</testsuites>

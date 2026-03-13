@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
+import { resolveImageUrl } from '@/lib/image';
 
 export default function AdminOrderDetailsPage() {
   const { isAdmin } = useAuth();
@@ -17,6 +18,7 @@ export default function AdminOrderDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [trackingNumber, setTrackingNumber] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('placed');
 
   useEffect(() => {
     if (!isAdmin) {
@@ -31,6 +33,7 @@ export default function AdminOrderDetailsPage() {
       const response = await api.get(`/orders/${orderId}`);
       setOrder(response.data.data);
       setTrackingNumber(response.data.data.tracking_number || '');
+      setSelectedStatus(response.data.data.order_status || 'placed');
     } catch (error) {
       toast.error('Failed to load order');
       router.push('/admin/orders');
@@ -39,13 +42,13 @@ export default function AdminOrderDetailsPage() {
     }
   };
 
-  const handleStatusUpdate = async (newStatus: string) => {
-    if (!confirm(`Update order status to "${newStatus}"?`)) return;
+  const handleStatusUpdate = async () => {
+    if (!confirm(`Update order status to \"${selectedStatus}\"?`)) return;
 
     setUpdating(true);
     try {
       await api.put(`/orders/admin/${orderId}/status`, {
-        order_status: newStatus,
+        order_status: selectedStatus,
         tracking_number: trackingNumber || undefined,
       });
       toast.success('Order status updated');
@@ -147,12 +150,12 @@ export default function AdminOrderDetailsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {order.items?.map((item: any) => (
+                    {(Array.isArray(order.items) ? order.items : []).map((item: any) => (
                       <tr key={item.id}>
                         <td>
                           <div className="d-flex align-items-center gap-2">
                             <Image
-                              src={item.product_image || '/placeholder.jpg'}
+                              src={resolveImageUrl(item.product_image)}
                               alt={item.product_name}
                               width={50}
                               height={60}
@@ -210,15 +213,15 @@ export default function AdminOrderDetailsPage() {
                 <label className="form-label">Update Status</label>
                 <select
                   className="form-select"
-                  value={order.order_status}
-                  onChange={(e) => handleStatusUpdate(e.target.value)}
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
                   disabled={updating}
                 >
                   <option value="placed">Placed</option>
-                  <option value="processing">Processing</option>
-                  <option value="shipped">Shipped</option>
+                                    <option value="shipped">Shipped</option>
                   <option value="delivered">Delivered</option>
                   <option value="cancelled">Cancelled</option>
+                  <option value="returned">Returned</option>
                 </select>
               </div>
 
@@ -234,7 +237,7 @@ export default function AdminOrderDetailsPage() {
               </div>
 
               <button
-                onClick={() => handleStatusUpdate(order.order_status)}
+                onClick={handleStatusUpdate}
                 className="btn btn-primary w-100"
                 disabled={updating}
               >
